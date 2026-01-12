@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-sun: #f59e0b;
+    --color-shadow: #1f2937;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+  }
+
+  * {
+    @apply box-border;
+  }
+
+  /* Enhanced focus visibility for keyboard users */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-amber-500;
+  }
+
+  /* Remove default focus outline when using mouse */
+  :focus:not(:focus-visible) {
+    @apply outline-none;
+  }
+
+  /* Skip navigation link - visible only when focused */
+  .skip-link {
+    @apply absolute -top-10 left-0 bg-amber-500 text-white px-4 py-2 z-50 transition-all;
+  }
+  .skip-link:focus {
+    @apply top-0;
+  }
+
+  /* Screen reader only utility */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  /* Ensure sufficient contrast for gray text - use gray-600 minimum */
+  .text-muted {
+    @apply text-gray-600; /* 4.5:1 contrast ratio with white */
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply btn bg-amber-500 text-white hover:bg-amber-600 focus:ring-amber-500;
+  }
+
+  .btn-secondary {
+    @apply btn bg-gray-200 text-gray-800 hover:bg-gray-300 focus:ring-gray-500;
+  }
+
+  .btn-outline {
+    @apply btn border-2 border-gray-300 bg-transparent hover:bg-gray-100 focus:ring-gray-500;
+  }
+
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-200 p-6;
+  }
+
+  .input {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent;
+  }
+
+  .label {
+    @apply block text-sm font-medium text-gray-700 mb-1;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Animations */
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+/* Respect user's motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Keep essential animations but make them instant */
+  .animate-spin {
+    animation: none !important;
+  }
+}
+
+/* High contrast mode improvements */
+@media (prefers-contrast: more) {
+  .card {
+    border-width: 2px;
+    border-color: #374151; /* gray-700 */
+  }
+
+  .btn-primary {
+    border: 2px solid #92400e; /* amber-800 */
+  }
+
+  .btn-outline {
+    border-width: 3px;
+  }
+}
