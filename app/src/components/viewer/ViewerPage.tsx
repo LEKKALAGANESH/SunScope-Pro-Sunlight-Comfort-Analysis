@@ -1,9 +1,10 @@
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import type * as THREE from 'three';
 import { useProjectStore } from '../../store/projectStore';
 import { Scene3D } from './Scene3D';
 import { TimeControls } from './TimeControls';
 import { AnimatedExportModal } from './AnimatedExportModal';
+import { CollapsibleSection } from './CollapsibleSection';
 import { exportToGLTF } from '../../modules/export/ExportService';
 import type { Building, Vector3 } from '../../types';
 
@@ -41,6 +42,7 @@ export function ViewerPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [sunPosition, setSunPosition] = useState<SunPositionInfo | null>(null);
   const [hoveredBuilding, setHoveredBuilding] = useState<Building | null>(null);
+  const [hoveredFloor, setHoveredFloor] = useState<number | null>(null);
   const [showAnimatedExport, setShowAnimatedExport] = useState(false);
   const [pendingMeasurementPoint, setPendingMeasurementPoint] = useState<Vector3 | null>(null);
   const [sectionCut, setSectionCut] = useState<{
@@ -54,13 +56,26 @@ export function ViewerPage() {
     position: 0.5,
     flip: false,
   });
+  const [immersiveMode, setImmersiveMode] = useState(false);
+
+  // Handle Escape key to exit immersive mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && immersiveMode) {
+        setImmersiveMode(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [immersiveMode]);
 
   const handleSunPositionChange = useCallback((info: SunPositionInfo) => {
     setSunPosition(info);
   }, []);
 
-  const handleBuildingHover = useCallback((building: Building | null) => {
+  const handleBuildingHover = useCallback((building: Building | null, floorInfo?: { floor: number | null } | null) => {
     setHoveredBuilding(building);
+    setHoveredFloor(floorInfo?.floor ?? null);
   }, []);
 
   const handleMeasurementClick = useCallback((point: Vector3) => {
@@ -93,10 +108,6 @@ export function ViewerPage() {
     rendererRef.current = renderer;
     cameraRef.current = camera;
     sunLightRef.current = sunLight;
-  };
-
-  const handleResetView = () => {
-    // Reset camera position - would need camera ref
   };
 
   const handleExportGLTF = async () => {
@@ -141,15 +152,84 @@ export function ViewerPage() {
     ? Array.from({ length: selectedBuilding.floors }, (_, i) => i + 1)
     : [];
 
+  // Render immersive mode as a separate full-screen overlay
+  if (immersiveMode) {
+    return (
+      <div className="fixed inset-0 z-50 bg-gray-900" style={{ width: '100vw', height: '100vh' }}>
+        <div className="w-full h-full relative">
+          <Scene3D
+            onSceneReady={handleSceneReady}
+            onSunPositionChange={handleSunPositionChange}
+            onBuildingHover={handleBuildingHover}
+            onMeasurementClick={handleMeasurementClick}
+            showNorthArrow={false}
+            showSunRay={false}
+            showScaleBar={true}
+            showSunPath={true}
+            sectionCut={sectionCut}
+            displaySettings={displaySettings}
+            measurements={measurements}
+            measurementMode={measurementMode}
+            pendingMeasurementPoint={pendingMeasurementPoint}
+          />
+
+          {/* Exit Immersive Mode Button */}
+          <button
+            onClick={() => setImmersiveMode(false)}
+            className="absolute top-4 left-4 bg-black/70 backdrop-blur-sm text-white px-4 py-2 rounded-lg hover:bg-black/90 transition-colors shadow-lg flex items-center gap-2"
+            aria-label="Exit immersive mode"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            <span className="text-sm font-medium">Exit (Esc)</span>
+          </button>
+
+          {/* Time Overlay */}
+          <div className="absolute top-4 right-4 bg-black/70 backdrop-blur-sm text-white px-4 py-2 rounded-lg text-sm font-mono shadow-lg">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0z" />
+              </svg>
+              <span className="font-semibold">
+                {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+              </span>
+            </div>
+            <div className="text-xs text-gray-300 mt-1">
+              {analysis.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            </div>
+          </div>
+
+          {/* Sun Position */}
+          {sunPosition && (
+            <div className="absolute bottom-4 right-4 bg-black/70 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-xs font-mono shadow-lg">
+              <div className="flex items-center gap-3">
+                <div>
+                  <span className="text-gray-400">Alt:</span>{' '}
+                  <span className={sunPosition.isAboveHorizon ? 'text-amber-400' : 'text-gray-500'}>
+                    {sunPosition.altitude.toFixed(1)}°
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Az:</span>{' '}
+                  <span className="text-blue-400">{sunPosition.azimuth.toFixed(1)}°</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto">
       {/* Mobile: Stack vertically, Desktop: 4-column grid */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        {/* Left Sidebar - Selection (Mobile: collapsible on smaller screens) */}
+        {/* Left Sidebar - Selection */}
         <div className="space-y-4 order-2 lg:order-1">
           {/* Building Selection */}
-          <div className="card">
-            <h3 className="font-medium text-gray-900 mb-3">Select Building</h3>
+          <CollapsibleSection title="Buildings" badge={buildings.length} defaultCollapsed={true}>
             {buildings.length === 0 ? (
               <p className="text-sm text-gray-500">No buildings to select</p>
             ) : (
@@ -188,12 +268,11 @@ export function ViewerPage() {
                 ))}
               </div>
             )}
-          </div>
+          </CollapsibleSection>
 
           {/* Floor Selection */}
           {selectedBuilding && (
-            <div className="card">
-              <h3 className="font-medium text-gray-900 mb-3">Select Floor</h3>
+            <CollapsibleSection title="Floor Selection" defaultCollapsed={true}>
               <select
                 value={analysis.selectedFloor || ''}
                 onChange={(e) =>
@@ -210,30 +289,13 @@ export function ViewerPage() {
                   </option>
                 ))}
               </select>
-            </div>
+            </CollapsibleSection>
           )}
 
-          {/* View Controls */}
-          <div className="card">
-            <h3 className="font-medium text-gray-900 mb-3">View</h3>
-            <div className="grid grid-cols-2 gap-2">
-              <button className="btn-outline text-sm">Top</button>
-              <button className="btn-outline text-sm">Front</button>
-              <button className="btn-outline text-sm">Side</button>
-              <button className="btn-outline text-sm">Iso</button>
-            </div>
-            <button
-              onClick={handleResetView}
-              className="w-full mt-2 btn-secondary text-sm"
-            >
-              Reset View
-            </button>
-          </div>
-
           {/* Section Cut Controls */}
-          <div className="card">
+          <CollapsibleSection title="Section Cut" defaultCollapsed={true}>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-medium text-gray-900">Section Cut</h3>
+              <span className="text-sm text-gray-600">Enable</span>
               <button
                 onClick={() => setSectionCut(prev => ({ ...prev, enabled: !prev.enabled }))}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
@@ -308,12 +370,10 @@ export function ViewerPage() {
             <p className="text-xs text-gray-400 mt-2">
               Slice through buildings to see interior floors.
             </p>
-          </div>
+          </CollapsibleSection>
 
           {/* Display Options */}
-          <div className="card">
-            <h3 className="font-medium text-gray-900 mb-3">Display Options</h3>
-
+          <CollapsibleSection title="Display Options" defaultCollapsed={true}>
             {/* Floor Transparency */}
             <div className="space-y-3">
               <div>
@@ -382,11 +442,10 @@ export function ViewerPage() {
                 )}
               </div>
             </div>
-          </div>
+          </CollapsibleSection>
 
           {/* Measurement Tool */}
-          <div className="card">
-            <h3 className="font-medium text-gray-900 mb-3">Measure Distance</h3>
+          <CollapsibleSection title="Measure Distance" badge={measurements.length > 0 ? measurements.length : undefined} defaultCollapsed={true}>
             <button
               onClick={() => {
                 if (measurementMode) {
@@ -447,11 +506,10 @@ export function ViewerPage() {
                 ))}
               </div>
             )}
-          </div>
+          </CollapsibleSection>
 
           {/* Export Options */}
-          <div className="card">
-            <h3 className="font-medium text-gray-900 mb-3">Export</h3>
+          <CollapsibleSection title="Export" defaultCollapsed={true}>
             <div className="space-y-2">
               {/* GLTF Export */}
               <button
@@ -489,21 +547,21 @@ export function ViewerPage() {
             <p className="text-xs text-gray-500 mt-2">
               Create sun movement animation or download 3D model.
             </p>
-          </div>
+          </CollapsibleSection>
         </div>
 
         {/* Main 3D View - First on mobile */}
         <div className="lg:col-span-2 order-1 lg:order-2">
           <div className="card p-0 overflow-hidden relative">
-            {/* Responsive height: smaller on mobile */}
+            {/* Responsive height */}
             <div className="h-[300px] sm:h-[400px] lg:h-[500px]">
               <Scene3D
                 onSceneReady={handleSceneReady}
                 onSunPositionChange={handleSunPositionChange}
                 onBuildingHover={handleBuildingHover}
                 onMeasurementClick={handleMeasurementClick}
-                showNorthArrow={true}
-                showSunRay={true}
+                showNorthArrow={false}
+                showSunRay={false}
                 showScaleBar={true}
                 showSunPath={true}
                 sectionCut={sectionCut}
@@ -561,15 +619,21 @@ export function ViewerPage() {
               </div>
             )}
 
-            {/* North Indicator Badge */}
-            <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-sm text-white px-2 py-1 rounded text-xs font-bold shadow-lg flex items-center gap-1">
-              <span className="text-red-500">▲</span>
-              <span>N</span>
-            </div>
+            {/* Immersive Mode Toggle */}
+            <button
+              onClick={() => setImmersiveMode(true)}
+              className="absolute top-3 left-3 bg-black/60 backdrop-blur-sm text-white p-2 rounded hover:bg-black/80 transition-colors shadow-lg"
+              aria-label="Enter immersive mode"
+              title="Enter immersive mode (fullscreen)"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+            </button>
 
-            {/* Building Hover Tooltip */}
+            {/* Building Hover Tooltip with Floor Insights */}
             {hoveredBuilding && (
-              <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm border border-gray-200 px-3 py-2 rounded-lg shadow-lg max-w-[200px] pointer-events-none">
+              <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm border border-gray-200 px-3 py-2 rounded-lg shadow-lg max-w-[240px] pointer-events-none">
                 <div className="flex items-center gap-2 mb-1">
                   <div
                     className="w-3 h-3 rounded"
@@ -579,9 +643,53 @@ export function ViewerPage() {
                     {hoveredBuilding.name}
                   </span>
                 </div>
+
+                {/* Floor-specific info when hovering a floor */}
+                {hoveredFloor && (
+                  <div className="mb-2 p-2 bg-amber-50 rounded border border-amber-200">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-semibold text-amber-800">
+                        Floor {hoveredFloor}
+                      </span>
+                      <span className="text-xs text-amber-600">
+                        {((hoveredFloor - 1) * hoveredBuilding.floorHeight).toFixed(1)}m - {(hoveredFloor * hoveredBuilding.floorHeight).toFixed(1)}m
+                      </span>
+                    </div>
+                    <div className="space-y-1 text-xs text-gray-600">
+                      <div className="flex justify-between gap-2">
+                        <span>Est. sunlight:</span>
+                        <span className={`font-medium ${
+                          hoveredFloor > hoveredBuilding.floors * 0.7 ? 'text-green-600' :
+                          hoveredFloor > hoveredBuilding.floors * 0.4 ? 'text-amber-600' :
+                          'text-orange-600'
+                        }`}>
+                          {hoveredFloor > hoveredBuilding.floors * 0.7 ? 'High' :
+                           hoveredFloor > hoveredBuilding.floors * 0.4 ? 'Medium' : 'Low'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span>Position:</span>
+                        <span className="font-mono">
+                          {Math.round((hoveredFloor / hoveredBuilding.floors) * 100)}% height
+                        </span>
+                      </div>
+                      {sunPosition && sunPosition.isAboveHorizon && (
+                        <div className="flex justify-between gap-2">
+                          <span>Shadow risk:</span>
+                          <span className={`font-medium ${
+                            hoveredFloor > hoveredBuilding.floors * 0.5 ? 'text-green-600' : 'text-orange-600'
+                          }`}>
+                            {hoveredFloor > hoveredBuilding.floors * 0.5 ? 'Low' : 'Higher'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-0.5 text-xs text-gray-600">
                   <div className="flex justify-between gap-4">
-                    <span>Height:</span>
+                    <span>Total height:</span>
                     <span className="font-mono">{hoveredBuilding.totalHeight}m</span>
                   </div>
                   <div className="flex justify-between gap-4">
@@ -615,13 +723,12 @@ export function ViewerPage() {
           </div>
         </div>
 
-        {/* Right Sidebar - Time Controls - Second on mobile */}
-        <div className="order-3 lg:order-3">
+        {/* Right Sidebar - Time Controls */}
+        <div className="space-y-4 order-3 lg:order-3">
           <TimeControls />
 
           {/* Quick Stats */}
-          <div className="card mt-4">
-            <h3 className="font-medium text-gray-900 mb-3">Current Analysis</h3>
+          <CollapsibleSection title="Current Analysis" defaultCollapsed={true}>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-500">Target:</span>
@@ -646,7 +753,7 @@ export function ViewerPage() {
                 <span className="font-medium">{buildings.length}</span>
               </div>
             </div>
-          </div>
+          </CollapsibleSection>
         </div>
       </div>
 

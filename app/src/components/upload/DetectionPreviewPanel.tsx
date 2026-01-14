@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useProjectStore } from '../../store/projectStore';
 import { useImageAnalysisWorker } from '../../hooks/useImageAnalysisWorker';
-import type { DetectedBuilding, AmenityType } from '../../types';
+import { ImportConfirmationModal, ImportSuccessToast } from './ImportConfirmationModal';
+import type { DetectedBuilding, DetectedAmenity, AmenityType, ImportSummary } from '../../types';
 
 const AMENITY_LABELS: Record<AmenityType, string> = {
   swimming_pool: 'Swimming Pool',
@@ -36,7 +37,9 @@ export function DetectionPreviewPanel() {
     setDetectionResult,
     toggleDetectedBuilding,
     selectAllDetectedBuildings,
-    importSelectedBuildings,
+    toggleDetectedAmenity,
+    selectAllDetectedAmenities,
+    importSelectedElements,
     setCurrentStep,
   } = useProjectStore();
 
@@ -54,6 +57,8 @@ export function DetectionPreviewPanel() {
   const [showOverlay, setShowOverlay] = useState(true);
   const [activeTab, setActiveTab] = useState<'buildings' | 'amenities' | 'other'>('buildings');
   const analysisStartedRef = useRef(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
 
   // Run analysis when image is available
   useEffect(() => {
@@ -189,8 +194,23 @@ export function DetectionPreviewPanel() {
     }
   }, [image, detectionResult, showOverlay]);
 
-  const selectedCount = detectionResult?.buildings.filter((b) => b.selected).length || 0;
-  const totalCount = detectionResult?.buildings.length || 0;
+  const selectedBuildingCount = detectionResult?.buildings.filter((b) => b.selected).length || 0;
+  const totalBuildingCount = detectionResult?.buildings.length || 0;
+  const selectedAmenityCount = detectionResult?.amenities.filter((a) => a.selected).length || 0;
+  const totalAmenityCount = detectionResult?.amenities.length || 0;
+  const totalSelectedCount = selectedBuildingCount + selectedAmenityCount;
+
+  // Handle import confirmation
+  const handleImportAndContinue = () => {
+    setShowImportModal(true);
+  };
+
+  const handleConfirmImport = () => {
+    const summary = importSelectedElements();
+    setImportSummary(summary);
+    setShowImportModal(false);
+    setCurrentStep('setup');
+  };
 
   if (!image) return null;
 
@@ -336,7 +356,12 @@ export function DetectionPreviewPanel() {
               }`}
               onClick={() => setActiveTab('buildings')}
             >
-              Buildings ({totalCount})
+              Buildings ({totalBuildingCount})
+              {selectedBuildingCount > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 text-xs bg-blue-100 text-blue-600 rounded-full">
+                  {selectedBuildingCount}
+                </span>
+              )}
             </button>
             <button
               className={`flex-1 py-2 text-sm font-medium border-b-2 ${
@@ -346,7 +371,12 @@ export function DetectionPreviewPanel() {
               }`}
               onClick={() => setActiveTab('amenities')}
             >
-              Amenities ({detectionResult?.amenities.length || 0})
+              Amenities ({totalAmenityCount})
+              {selectedAmenityCount > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 text-xs bg-green-100 text-green-600 rounded-full">
+                  {selectedAmenityCount}
+                </span>
+              )}
             </button>
             <button
               className={`flex-1 py-2 text-sm font-medium border-b-2 ${
@@ -363,10 +393,10 @@ export function DetectionPreviewPanel() {
           {/* Buildings Tab */}
           {activeTab === 'buildings' && (
             <div>
-              {totalCount > 0 && (
+              {totalBuildingCount > 0 && (
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm text-gray-500">
-                    {selectedCount} of {totalCount} selected
+                    {selectedBuildingCount} of {totalBuildingCount} selected
                   </span>
                   <div className="flex gap-2">
                     <button
@@ -429,47 +459,67 @@ export function DetectionPreviewPanel() {
                   />
                 ))}
 
-                {!isAnalyzing && totalCount === 0 && (
+                {!isAnalyzing && totalBuildingCount === 0 && (
                   <p className="text-sm text-gray-500 text-center py-4">
                     No buildings detected. You can manually trace them in the editor.
                   </p>
                 )}
               </div>
 
-              {selectedCount > 0 && (
-                <button
-                  className="w-full mt-4 btn-primary"
-                  onClick={importSelectedBuildings}
-                >
-                  Import {selectedCount} Building{selectedCount !== 1 ? 's' : ''}
-                </button>
+              {/* Info about selection */}
+              {totalBuildingCount > 0 && selectedBuildingCount === 0 && (
+                <p className="mt-3 text-xs text-gray-400 text-center">
+                  Select buildings above to import them to your project
+                </p>
               )}
             </div>
           )}
 
           {/* Amenities Tab */}
           {activeTab === 'amenities' && (
-            <div className="space-y-2 max-h-80 overflow-y-auto">
-              {detectionResult?.amenities.map((amenity) => (
-                <div
-                  key={amenity.id}
-                  className="flex items-center gap-3 p-2 bg-gray-50 rounded"
-                >
-                  <span className="text-xl">{AMENITY_ICONS[amenity.type]}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900">
-                      {AMENITY_LABELS[amenity.type]}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Confidence: {Math.round(amenity.confidence * 100)}%
-                    </p>
+            <div>
+              {totalAmenityCount > 0 && (
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm text-gray-500">
+                    {selectedAmenityCount} of {totalAmenityCount} selected
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      className="text-xs text-green-600 hover:underline"
+                      onClick={() => selectAllDetectedAmenities(true)}
+                    >
+                      Select all
+                    </button>
+                    <button
+                      className="text-xs text-gray-500 hover:underline"
+                      onClick={() => selectAllDetectedAmenities(false)}
+                    >
+                      Clear
+                    </button>
                   </div>
                 </div>
-              ))}
+              )}
 
-              {!isAnalyzing && (detectionResult?.amenities.length || 0) === 0 && (
-                <p className="text-sm text-gray-500 text-center py-4">
-                  No amenities detected in this image.
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {detectionResult?.amenities.map((amenity) => (
+                  <AmenityItem
+                    key={amenity.id}
+                    amenity={amenity}
+                    onToggle={() => toggleDetectedAmenity(amenity.id)}
+                  />
+                ))}
+
+                {!isAnalyzing && totalAmenityCount === 0 && (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    No amenities detected in this image.
+                  </p>
+                )}
+              </div>
+
+              {/* Info about selection */}
+              {totalAmenityCount > 0 && selectedAmenityCount === 0 && (
+                <p className="mt-3 text-xs text-gray-400 text-center">
+                  Select amenities above to include them in your project
                 </p>
               )}
             </div>
@@ -562,6 +612,38 @@ export function DetectionPreviewPanel() {
         </div>
       </div>
 
+      {/* Selection Summary */}
+      {totalSelectedCount > 0 && (
+        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium text-blue-900">
+                Selected for import:
+              </span>
+              {selectedBuildingCount > 0 && (
+                <span className="text-sm text-blue-700">
+                  {selectedBuildingCount} building{selectedBuildingCount !== 1 ? 's' : ''}
+                </span>
+              )}
+              {selectedAmenityCount > 0 && (
+                <span className="text-sm text-blue-700">
+                  {selectedAmenityCount} amenit{selectedAmenityCount !== 1 ? 'ies' : 'y'}
+                </span>
+              )}
+            </div>
+            <button
+              className="text-xs text-blue-600 hover:underline"
+              onClick={() => {
+                selectAllDetectedBuildings(false);
+                selectAllDetectedAmenities(false);
+              }}
+            >
+              Clear all
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Actions */}
       <div className="mt-6 flex justify-between items-center">
         <button
@@ -582,18 +664,40 @@ export function DetectionPreviewPanel() {
             Skip to Setup
           </button>
           <button
-            className="btn-primary"
-            onClick={() => {
-              if (selectedCount > 0) {
-                importSelectedBuildings();
-              }
-              setCurrentStep('setup');
-            }}
+            className="btn-primary flex items-center gap-2"
+            onClick={handleImportAndContinue}
           >
-            {selectedCount > 0 ? 'Import & Continue' : 'Continue to Setup'}
+            {totalSelectedCount > 0 ? (
+              <>
+                Import & Continue
+                <span className="px-1.5 py-0.5 text-xs bg-white/20 rounded">
+                  {totalSelectedCount}
+                </span>
+              </>
+            ) : (
+              'Continue to Setup'
+            )}
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
           </button>
         </div>
       </div>
+
+      {/* Import Confirmation Modal */}
+      <ImportConfirmationModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onConfirm={handleConfirmImport}
+      />
+
+      {/* Import Success Toast */}
+      {importSummary && (
+        <ImportSuccessToast
+          summary={importSummary}
+          onClose={() => setImportSummary(null)}
+        />
+      )}
     </div>
   );
 }
@@ -628,6 +732,39 @@ function BuildingItem({
         </p>
         <p className="text-xs text-gray-500">
           {Math.round(building.area)} px² • {Math.round(building.confidence * 100)}% confidence
+        </p>
+      </div>
+    </label>
+  );
+}
+
+// Amenity item component
+function AmenityItem({
+  amenity,
+  onToggle,
+}: {
+  amenity: DetectedAmenity;
+  onToggle: () => void;
+}) {
+  return (
+    <label
+      className={`flex items-center gap-3 p-2 rounded cursor-pointer transition-colors ${
+        amenity.selected ? 'bg-green-50 border border-green-200' : 'bg-gray-50 hover:bg-gray-100'
+      }`}
+    >
+      <input
+        type="checkbox"
+        checked={amenity.selected}
+        onChange={onToggle}
+        className="rounded border-gray-300 text-green-500"
+      />
+      <span className="text-xl">{AMENITY_ICONS[amenity.type]}</span>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-gray-900">
+          {amenity.label || AMENITY_LABELS[amenity.type]}
+        </p>
+        <p className="text-xs text-gray-500">
+          {Math.round(amenity.confidence * 100)}% confidence
         </p>
       </div>
     </label>

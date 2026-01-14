@@ -160,6 +160,50 @@ export function ResultsPage() {
         </p>
       </div>
 
+      {/* Key Insights Summary */}
+      <div className={`mb-6 p-4 rounded-lg border-l-4 ${
+        results.comfort.riskLevel === 'high'
+          ? 'bg-red-50 border-red-500'
+          : results.comfort.riskLevel === 'medium'
+          ? 'bg-amber-50 border-amber-500'
+          : 'bg-green-50 border-green-500'
+      }`}>
+        <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          </svg>
+          Key Insights
+        </h3>
+        <ul className="space-y-1 text-sm text-gray-700">
+          <li>
+            <span className="font-medium">Sunlight Duration:</span>{' '}
+            This location receives {results.sunlight.totalHours.toFixed(1)} hours of sunlight,
+            {results.sunlight.totalHours >= 6
+              ? ' which exceeds the 6-hour minimum for healthy living spaces.'
+              : results.sunlight.totalHours >= 4
+              ? ' which meets basic daylight requirements but could benefit from improvements.'
+              : ' which is below recommended levels. Consider design modifications.'}
+          </li>
+          <li>
+            <span className="font-medium">Heat Exposure:</span>{' '}
+            Peak solar radiation of {results.solar.peakIrradiance.toFixed(0)} W/m²
+            {results.solar.peakIrradiance >= 800
+              ? ' indicates strong sun exposure. Shading or heat-reflective glazing is recommended.'
+              : results.solar.peakIrradiance >= 500
+              ? ' is moderate. Standard double glazing should be adequate.'
+              : ' is relatively low. Minimal heat mitigation measures needed.'}
+          </li>
+          <li>
+            <span className="font-medium">Comfort Assessment:</span>{' '}
+            {results.comfort.riskLevel === 'high'
+              ? 'High heat risk detected. Active cooling or significant shading interventions recommended.'
+              : results.comfort.riskLevel === 'medium'
+              ? 'Moderate conditions. Adjustable shading will help maintain comfort throughout the day.'
+              : 'Good thermal comfort expected. Natural ventilation should be sufficient.'}
+          </li>
+        </ul>
+      </div>
+
       {/* Key Metrics */}
       <div className="grid md:grid-cols-3 gap-4 mb-6">
         {/* Sunlight Timing */}
@@ -268,31 +312,65 @@ export function ResultsPage() {
                 ? 'Moderate heat risk'
                 : 'High heat risk'}
             </p>
+            <p className="mt-1 text-xs text-gray-400">
+              {results.comfort.score >= 80
+                ? 'Score 80-100: Excellent conditions'
+                : results.comfort.score >= 60
+                ? 'Score 60-79: Acceptable with minor adjustments'
+                : results.comfort.score >= 40
+                ? 'Score 40-59: Shading recommended'
+                : 'Score below 40: Significant intervention needed'}
+            </p>
           </div>
         </div>
       </div>
 
       {/* Recommendations */}
       <div className="card mb-6">
-        <h3 className="font-medium text-gray-900 mb-4">Daily Recommendations</h3>
+        <h3 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+          <svg className="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+          </svg>
+          Daily Recommendations
+        </h3>
+        <p className="text-sm text-gray-500 mb-4">
+          Based on the sun patterns for {analysis.date.toLocaleDateString()}, here's what we suggest:
+        </p>
         <ul className="space-y-3">
           {results.comfort.recommendations.map((rec, index) => (
             <li key={index} className="flex items-start gap-3">
-              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-sm">
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-sm font-medium">
                 {index + 1}
               </span>
               <span className="text-gray-700">{rec}</span>
             </li>
           ))}
         </ul>
+        {results.comfort.peakHeatPeriod && (
+          <div className="mt-4 p-3 bg-amber-50 rounded-lg text-sm">
+            <span className="font-medium text-amber-800">Peak heat period: </span>
+            <span className="text-amber-700">
+              {formatTime(results.comfort.peakHeatPeriod.start)} - {formatTime(results.comfort.peakHeatPeriod.end)}
+            </span>
+            <span className="text-amber-600 ml-1">
+              (consider extra shading during this time)
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="grid md:grid-cols-2 gap-6 mb-6">
         {/* Scenario Toggles */}
         <div className="card">
-          <h3 className="font-medium text-gray-900 mb-4">Scenario Settings</h3>
+          <h3 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+            <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Scenario Settings
+          </h3>
           <p className="text-sm text-gray-500 mb-4">
-            Adjust settings to see how changes affect comfort.
+            Adjust settings to see how changes affect comfort. Results update instantly.
           </p>
 
           <div className="space-y-4">
@@ -321,6 +399,11 @@ export function ResultsPage() {
                   Closed
                 </button>
               </div>
+              <p className="text-xs text-gray-400 mt-1">
+                {activeScenario?.window.state === 'open'
+                  ? 'Open windows allow natural ventilation (20% heat reduction)'
+                  : 'Closed windows rely on glass and shading for heat control'}
+              </p>
             </div>
 
             {/* Glazing Type */}
@@ -331,11 +414,14 @@ export function ResultsPage() {
                 onChange={(e) => handleScenarioChange('type', e.target.value)}
                 className="input"
               >
-                <option value="single">Single Glazing</option>
-                <option value="double">Double Glazing</option>
-                <option value="triple">Triple Glazing</option>
-                <option value="low-e">Low-E Glass</option>
+                <option value="single">Single Glazing (87% solar transmission)</option>
+                <option value="double">Double Glazing (76% solar transmission)</option>
+                <option value="triple">Triple Glazing (68% solar transmission)</option>
+                <option value="low-e">Low-E Glass (42% solar transmission)</option>
               </select>
+              <p className="text-xs text-gray-400 mt-1">
+                Lower transmission means less heat enters the space
+              </p>
             </div>
 
             {/* Interior Shading */}
@@ -346,12 +432,23 @@ export function ResultsPage() {
                 onChange={(e) => handleScenarioChange('interior', e.target.value)}
                 className="input"
               >
-                <option value="none">None</option>
-                <option value="blinds">Blinds</option>
-                <option value="curtains">Light Curtains</option>
-                <option value="heavy-curtains">Heavy Curtains</option>
+                <option value="none">None (0% reduction)</option>
+                <option value="blinds">Blinds (25% heat reduction)</option>
+                <option value="curtains">Light Curtains (40% heat reduction)</option>
+                <option value="heavy-curtains">Heavy Curtains (65% heat reduction)</option>
               </select>
+              <p className="text-xs text-gray-400 mt-1">
+                Interior shading blocks heat after it enters through the glass
+              </p>
             </div>
+          </div>
+
+          {/* Current scenario impact summary */}
+          <div className="mt-4 p-3 bg-blue-50 rounded-lg text-sm">
+            <span className="font-medium text-blue-800">Current setup: </span>
+            <span className="text-blue-700">
+              {Math.round((1 - (activeScenario?.glazing.solarTransmittance || 0.76) * (activeScenario?.shading.reductionFactor || 1)) * 100)}% total solar heat reduction
+            </span>
           </div>
         </div>
 

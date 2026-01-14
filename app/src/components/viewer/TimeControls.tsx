@@ -4,6 +4,7 @@ import { useProjectStore } from '../../store/projectStore';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { TimeLapseThumbnails } from './TimeLapseThumbnails';
 import { DateRangeAnalysis } from './DateRangeAnalysis';
+import { CollapsibleSection } from './CollapsibleSection';
 
 // Enhanced Timeline Slider with visual phase zones
 interface EnhancedTimelineProps {
@@ -418,9 +419,7 @@ export function TimeControls() {
   const sunAzimuth = (sunPosition.azimuth * 180) / Math.PI;
 
   return (
-    <div className="card">
-      <h3 className="font-medium text-gray-900 mb-4">Time & Date Controls</h3>
-
+    <CollapsibleSection title="Time & Date" defaultCollapsed={true}>
       {/* Date Picker */}
       <div className="mb-4">
         <label className="label">Date</label>
@@ -806,6 +805,6 @@ export function TimeControls() {
           </p>
         )}
       </div>
-    </div>
+    </CollapsibleSection>
   );
 }

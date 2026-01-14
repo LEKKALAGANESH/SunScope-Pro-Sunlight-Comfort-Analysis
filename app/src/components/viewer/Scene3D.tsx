@@ -1,9 +1,16 @@
-import { useEffect, useRef, useMemo } from 'react';
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import SunCalc from 'suncalc';
-import { useProjectStore } from '../../store/projectStore';
-import type { Building, Point2D, Vector3, DisplaySettings, Measurement } from '../../types';
+import { useEffect, useMemo, useRef } from "react";
+import SunCalc from "suncalc";
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { useProjectStore } from "../../store/projectStore";
+import type {
+  Building,
+  DisplaySettings,
+  Measurement,
+  Point2D,
+  Vector3,
+} from "../../types";
+import { createBuildingMesh } from "./utils/buildingMesh";
 
 interface SunPositionInfo {
   altitude: number; // degrees
@@ -11,9 +18,15 @@ interface SunPositionInfo {
   isAboveHorizon: boolean;
 }
 
+interface FloorHoverInfo {
+  building: Building;
+  floor: number | null; // null means hovering building but no specific floor
+  floorHeight: { min: number; max: number } | null;
+}
+
 interface SectionCutConfig {
   enabled: boolean;
-  axis: 'x' | 'y' | 'z';
+  axis: "x" | "y" | "z";
   position: number; // 0-1 normalized
   flip: boolean;
 }
@@ -26,7 +39,7 @@ interface Scene3DProps {
     sunLight: THREE.DirectionalLight
   ) => void;
   onSunPositionChange?: (info: SunPositionInfo) => void;
-  onBuildingHover?: (building: Building | null) => void;
+  onBuildingHover?: (building: Building | null, floorInfo?: FloorHoverInfo | null) => void;
   onMeasurementClick?: (point: Vector3) => void;
   showNorthArrow?: boolean;
   showSunRay?: boolean;
@@ -40,7 +53,10 @@ interface Scene3DProps {
 }
 
 // Calculate bounding box for all buildings
-function calculateSceneBounds(buildings: Building[], scale: number): {
+function calculateSceneBounds(
+  buildings: Building[],
+  scale: number
+): {
   center: Point2D;
   size: number;
   maxHeight: number;
@@ -49,12 +65,14 @@ function calculateSceneBounds(buildings: Building[], scale: number): {
     return { center: { x: 0, y: 0 }, size: 200, maxHeight: 50 };
   }
 
-  let minX = Infinity, maxX = -Infinity;
-  let minY = Infinity, maxY = -Infinity;
+  let minX = Infinity,
+    maxX = -Infinity;
+  let minY = Infinity,
+    maxY = -Infinity;
   let maxHeight = 0;
 
-  buildings.forEach(building => {
-    building.footprint.forEach(p => {
+  buildings.forEach((building) => {
+    building.footprint.forEach((p) => {
       const x = p.x * scale;
       const y = p.y * scale;
       minX = Math.min(minX, x);
@@ -69,7 +87,8 @@ function calculateSceneBounds(buildings: Building[], scale: number): {
   const centerY = (minY + maxY) / 2;
   const sizeX = maxX - minX;
   const sizeY = maxY - minY;
-  const size = Math.max(sizeX, sizeY, 100) * 1.5;
+  // Reduced multiplier from 1.5 to 1.2 for more realistic building spacing
+  const size = Math.max(sizeX, sizeY, 100) * 1.2;
 
   return {
     center: { x: centerX, y: centerY },
@@ -83,7 +102,7 @@ export function Scene3D({
   onSunPositionChange,
   onBuildingHover,
   onMeasurementClick,
-  showNorthArrow = true,
+  showNorthArrow = false,
   showSunRay = true,
   showScaleBar = true,
   showSunPath = true,
@@ -97,7 +116,9 @@ export function Scene3D({
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
-  const clippingPlaneRef = useRef<THREE.Plane>(new THREE.Plane(new THREE.Vector3(0, -1, 0), 0));
+  const clippingPlaneRef = useRef<THREE.Plane>(
+    new THREE.Plane(new THREE.Vector3(0, -1, 0), 0)
+  );
   const sectionHelperRef = useRef<THREE.PlaneHelper | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
   const sunLightRef = useRef<THREE.DirectionalLight | null>(null);
@@ -114,6 +135,7 @@ export function Scene3D({
   // Phase 2 refs
   const scaleBarRef = useRef<THREE.Group | null>(null);
   const sunPathRef = useRef<THREE.Group | null>(null);
+  const cardinalDirectionsRef = useRef<THREE.Group | null>(null);
   const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster());
   const mouseRef = useRef<THREE.Vector2>(new THREE.Vector2());
   const hoveredBuildingRef = useRef<string | null>(null);
@@ -124,16 +146,21 @@ export function Scene3D({
   const pendingPointMarkerRef = useRef<THREE.Mesh | null>(null);
 
   // Shadow caching: track last sun position to avoid unnecessary updates
-  const lastSunPositionRef = useRef<{ altitude: number; azimuth: number } | null>(null);
-  const shadowUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSunPositionRef = useRef<{
+    altitude: number;
+    azimuth: number;
+  } | null>(null);
+  const shadowUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const isScrubbingRef = useRef<boolean>(false);
 
   const { project, currentTime } = useProjectStore();
   const { buildings, site, analysis } = project;
 
   // Calculate scene bounds
-  const sceneBounds = useMemo(() =>
-    calculateSceneBounds(buildings, site.scale),
+  const sceneBounds = useMemo(
+    () => calculateSceneBounds(buildings, site.scale),
     [buildings, site.scale]
   );
 
@@ -157,7 +184,7 @@ export function Scene3D({
     // Renderer with enhanced shadow settings
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
-      powerPreference: 'high-performance',
+      powerPreference: "high-performance",
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -175,11 +202,11 @@ export function Scene3D({
     controls.dampingFactor = 0.05;
     controls.maxPolarAngle = Math.PI / 2 - 0.05;
     controls.minDistance = 10;
-    controls.maxDistance = 5000;
+    controls.maxDistance = 10000;
     controlsRef.current = controls;
 
-    // Ground plane - will be sized based on scene
-    const groundGeo = new THREE.PlaneGeometry(2000, 2000);
+    // Ground plane - will be sized based on scene (large initial size)
+    const groundGeo = new THREE.PlaneGeometry(10000, 10000);
     const groundMat = new THREE.MeshStandardMaterial({
       color: 0x8fbc8f, // Lighter green for grass
       roughness: 0.9,
@@ -191,15 +218,15 @@ export function Scene3D({
     scene.add(ground);
     groundRef.current = ground;
 
-    // Grid helper
-    const gridHelper = new THREE.GridHelper(1000, 100, 0x888888, 0x666666);
+    // Grid helper (large initial size)
+    const gridHelper = new THREE.GridHelper(5000, 200, 0x888888, 0x666666);
     gridHelper.position.y = 0.1;
     scene.add(gridHelper);
     gridRef.current = gridHelper;
 
     // Measurement visualization group
     const measurementGroup = new THREE.Group();
-    measurementGroup.name = 'Measurements';
+    measurementGroup.name = "Measurements";
     scene.add(measurementGroup);
     measurementGroupRef.current = measurementGroup;
 
@@ -232,10 +259,12 @@ export function Scene3D({
     sunLight.shadow.mapSize.width = 4096;
     sunLight.shadow.mapSize.height = 4096;
     sunLight.shadow.camera.near = 1;
-    sunLight.shadow.camera.far = 2000;
+    sunLight.shadow.camera.far = 5000;
     sunLight.shadow.bias = -0.0001;
     sunLight.shadow.normalBias = 0.02;
     scene.add(sunLight);
+    // IMPORTANT: Add sun light target to scene for shadows to work correctly
+    scene.add(sunLight.target);
     sunLightRef.current = sunLight;
 
     // Sun helper (visual indicator) - larger and brighter
@@ -255,7 +284,7 @@ export function Scene3D({
     // Sun Ray - line from sun to ground showing light direction
     if (showSunRay) {
       const sunRayGroup = new THREE.Group();
-      sunRayGroup.name = 'SunRay';
+      sunRayGroup.name = "SunRay";
       scene.add(sunRayGroup);
       sunRayRef.current = sunRayGroup;
     }
@@ -263,7 +292,7 @@ export function Scene3D({
     // Scale Bar - visual reference for distances
     if (showScaleBar) {
       const scaleBarGroup = new THREE.Group();
-      scaleBarGroup.name = 'ScaleBar';
+      scaleBarGroup.name = "ScaleBar";
       scene.add(scaleBarGroup);
       scaleBarRef.current = scaleBarGroup;
     }
@@ -271,10 +300,16 @@ export function Scene3D({
     // Sun Path Arc - shows daily sun trajectory
     if (showSunPath) {
       const sunPathGroup = new THREE.Group();
-      sunPathGroup.name = 'SunPath';
+      sunPathGroup.name = "SunPath";
       scene.add(sunPathGroup);
       sunPathRef.current = sunPathGroup;
     }
+
+    // Cardinal Directions (N, S, E, W) - 3D labels that rotate with scene
+    const cardinalGroup = new THREE.Group();
+    cardinalGroup.name = "CardinalDirections";
+    scene.add(cardinalGroup);
+    cardinalDirectionsRef.current = cardinalGroup;
 
     // Mouse move handler for building hover detection
     const handleMouseMove = (event: MouseEvent) => {
@@ -288,7 +323,10 @@ export function Scene3D({
 
       // Check intersections with buildings
       const buildingObjects = Array.from(buildingMeshesRef.current.values());
-      const intersects = raycasterRef.current.intersectObjects(buildingObjects, true);
+      const intersects = raycasterRef.current.intersectObjects(
+        buildingObjects,
+        true
+      );
 
       if (intersects.length > 0) {
         // Find the building ID from the intersected object
@@ -298,49 +336,75 @@ export function Scene3D({
         }
         const buildingId = obj.userData.buildingId;
 
-        if (buildingId && buildingId !== hoveredBuildingRef.current) {
+        if (buildingId) {
           hoveredBuildingRef.current = buildingId;
-          container.style.cursor = 'pointer';
+          container.style.cursor = "pointer";
           if (onBuildingHover) {
-            const building = buildings.find(b => b.id === buildingId);
-            onBuildingHover(building || null);
+            const building = buildings.find((b) => b.id === buildingId);
+            if (building) {
+              // Calculate which floor is being hovered based on intersection Y position
+              const intersectionY = intersects[0].point.y;
+              const floorNumber = Math.min(
+                building.floors,
+                Math.max(1, Math.ceil(intersectionY / building.floorHeight))
+              );
+              const floorInfo: FloorHoverInfo = {
+                building,
+                floor: floorNumber,
+                floorHeight: {
+                  min: (floorNumber - 1) * building.floorHeight,
+                  max: floorNumber * building.floorHeight,
+                },
+              };
+              onBuildingHover(building, floorInfo);
+            } else {
+              onBuildingHover(null, null);
+            }
           }
         }
       } else {
         if (hoveredBuildingRef.current) {
           hoveredBuildingRef.current = null;
-          container.style.cursor = 'grab';
+          container.style.cursor = "grab";
           if (onBuildingHover) {
-            onBuildingHover(null);
+            onBuildingHover(null, null);
           }
         }
       }
     };
 
-    container.addEventListener('mousemove', handleMouseMove);
+    container.addEventListener("mousemove", handleMouseMove);
 
     // Click handler for measurement mode
     const handleClick = (event: MouseEvent) => {
-      if (!containerRef.current || !cameraRef.current || !groundRef.current) return;
+      if (!containerRef.current || !cameraRef.current || !groundRef.current)
+        return;
 
       const rect = container.getBoundingClientRect();
       const mouseX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       const mouseY = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-      raycasterRef.current.setFromCamera(new THREE.Vector2(mouseX, mouseY), cameraRef.current);
+      raycasterRef.current.setFromCamera(
+        new THREE.Vector2(mouseX, mouseY),
+        cameraRef.current
+      );
 
       // Raycast against ground plane
-      const groundIntersects = raycasterRef.current.intersectObject(groundRef.current);
+      const groundIntersects = raycasterRef.current.intersectObject(
+        groundRef.current
+      );
       if (groundIntersects.length > 0) {
         const point = groundIntersects[0].point;
         // Store the click point for external handling
-        container.dispatchEvent(new CustomEvent('measurementclick', {
-          detail: { x: point.x, y: point.y, z: point.z }
-        }));
+        container.dispatchEvent(
+          new CustomEvent("measurementclick", {
+            detail: { x: point.x, y: point.y, z: point.z },
+          })
+        );
       }
     };
 
-    container.addEventListener('click', handleClick);
+    container.addEventListener("click", handleClick);
 
     // Animation loop
     const animate = () => {
@@ -358,7 +422,7 @@ export function Scene3D({
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
     };
-    window.addEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
 
     // Callback
     if (onSceneReady) {
@@ -367,9 +431,9 @@ export function Scene3D({
 
     // Cleanup
     return () => {
-      window.removeEventListener('resize', handleResize);
-      container.removeEventListener('mousemove', handleMouseMove);
-      container.removeEventListener('click', handleClick);
+      window.removeEventListener("resize", handleResize);
+      container.removeEventListener("mousemove", handleMouseMove);
+      container.removeEventListener("click", handleClick);
       cancelAnimationFrame(animationRef.current);
       renderer.dispose();
       container.removeChild(renderer.domElement);
@@ -378,7 +442,8 @@ export function Scene3D({
 
   // Update camera, ground, and shadow camera when scene bounds change
   useEffect(() => {
-    if (!cameraRef.current || !controlsRef.current || !sunLightRef.current) return;
+    if (!cameraRef.current || !controlsRef.current || !sunLightRef.current)
+      return;
 
     const { center, size, maxHeight } = sceneBounds;
     sceneCenterRef.current = center;
@@ -396,14 +461,19 @@ export function Scene3D({
     controlsRef.current.target.set(center.x, maxHeight / 2, center.y);
     controlsRef.current.update();
 
-    // Update shadow camera frustum to cover all buildings
-    const shadowSize = Math.max(size, 500);
+    // Update shadow camera frustum to cover all buildings with generous margin
+    const shadowSize = Math.max(size * 2, 1000);
     sunLightRef.current.shadow.camera.left = -shadowSize;
     sunLightRef.current.shadow.camera.right = shadowSize;
     sunLightRef.current.shadow.camera.top = shadowSize;
     sunLightRef.current.shadow.camera.bottom = -shadowSize;
-    sunLightRef.current.shadow.camera.far = shadowSize * 4;
+    sunLightRef.current.shadow.camera.near = 0.5;
+    sunLightRef.current.shadow.camera.far = shadowSize * 6;
     sunLightRef.current.shadow.camera.updateProjectionMatrix();
+
+    // Update sun light target position to scene center
+    sunLightRef.current.target.position.set(center.x, 0, center.y);
+    sunLightRef.current.target.updateMatrixWorld();
 
     // Update ground position
     if (groundRef.current) {
@@ -430,9 +500,14 @@ export function Scene3D({
     if (scaleBarRef.current) {
       updateScaleBar(scaleBarRef.current, center, size, site.scale);
     }
+
+    // Update cardinal directions
+    if (cardinalDirectionsRef.current) {
+      updateCardinalDirections(cardinalDirectionsRef.current, center, size);
+    }
   }, [sceneBounds, site.scale]);
 
-  // Update sun path when date or location changes
+  // Update sun path when date, time, or location changes
   useEffect(() => {
     if (!sunPathRef.current || !showSunPath) return;
 
@@ -442,9 +517,17 @@ export function Scene3D({
       sceneBounds.size,
       site.location.latitude,
       site.location.longitude,
-      project.analysis.date
+      project.analysis.date,
+      currentTime  // Pass current time to show sun position on orbit
     );
-  }, [project.analysis.date, site.location, sceneBounds, showSunPath]);
+  }, [
+    project.analysis.date,
+    currentTime,
+    site.location.latitude,
+    site.location.longitude,
+    sceneBounds,
+    showSunPath,
+  ]);
 
   // Update buildings
   useEffect(() => {
@@ -504,7 +587,10 @@ export function Scene3D({
       // Highlight selected building with emissive
       if (isSelected && !analysis.selectedFloor) {
         buildingObj.traverse((child) => {
-          if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+          if (
+            child instanceof THREE.Mesh &&
+            child.material instanceof THREE.MeshStandardMaterial
+          ) {
             child.material.emissive = new THREE.Color(0x333333);
           }
         });
@@ -514,7 +600,12 @@ export function Scene3D({
     });
 
     buildingMeshesRef.current = newGroups;
-  }, [buildings, site.scale, analysis.selectedBuildingId, analysis.selectedFloor]);
+  }, [
+    buildings,
+    site.scale,
+    analysis.selectedBuildingId,
+    analysis.selectedFloor,
+  ]);
 
   // Update sun position based on time with shadow caching
   useEffect(() => {
@@ -533,7 +624,8 @@ export function Scene3D({
     // This avoids unnecessary shadow map updates for tiny changes
     const lastPos = lastSunPositionRef.current;
     const THRESHOLD = 0.008727; // ~0.5 degrees in radians
-    const positionChanged = !lastPos ||
+    const positionChanged =
+      !lastPos ||
       Math.abs(altitude - lastPos.altitude) > THRESHOLD ||
       Math.abs(azimuth - lastPos.azimuth) > THRESHOLD;
 
@@ -569,11 +661,12 @@ export function Scene3D({
     sunLightRef.current.intensity = 0.6 + Math.sin(altitude) * 0.6;
 
     // Calculate sun position relative to scene center
-    // Azimuth: 0 = south, positive = west (in SunCalc convention)
-    // In Three.js: X = east-west, Z = north-south, Y = up
+    // SunCalc: azimuth 0 = south, positive = west
+    // Three.js: X = east-west, Z = north-south (positive Z = south), Y = up
+    // The sun should be positioned where it actually is - shadows will naturally fall opposite
     const x = center.x - Math.sin(azimuth) * Math.cos(altitude) * distance;
     const y = Math.sin(altitude) * distance;
-    const z = center.y - Math.cos(azimuth) * Math.cos(altitude) * distance;
+    const z = center.y + Math.cos(azimuth) * Math.cos(altitude) * distance; // + for south (matches sun path orbit)
 
     sunLightRef.current.position.set(x, y, z);
     sunLightRef.current.target.position.set(center.x, 0, center.y);
@@ -581,7 +674,12 @@ export function Scene3D({
 
     // Update sun ray visualization
     if (sunRayRef.current && showSunRay) {
-      updateSunRay(sunRayRef.current, { x, y, z }, center, sceneBounds.maxHeight);
+      updateSunRay(
+        sunRayRef.current,
+        { x, y, z },
+        center,
+        sceneBounds.maxHeight
+      );
     }
 
     // Notify parent of sun position change
@@ -622,7 +720,14 @@ export function Scene3D({
 
       lastSunPositionRef.current = { altitude, azimuth };
     }
-  }, [currentTime, site.location, sceneBounds, onSunPositionChange, showSunRay]);
+  }, [
+    currentTime,
+    site.location.latitude,
+    site.location.longitude,
+    sceneBounds,
+    onSunPositionChange,
+    showSunRay,
+  ]);
 
   // Cleanup shadow update timeout on unmount
   useEffect(() => {
@@ -649,7 +754,10 @@ export function Scene3D({
       // Remove clipping from all materials
       buildingMeshesRef.current.forEach((obj) => {
         obj.traverse((child) => {
-          if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+          if (
+            child instanceof THREE.Mesh &&
+            child.material instanceof THREE.MeshStandardMaterial
+          ) {
             child.material.clippingPlanes = [];
             child.material.clipShadows = false;
             child.material.needsUpdate = true;
@@ -666,26 +774,32 @@ export function Scene3D({
 
     // Determine plane normal and position based on axis
     switch (sectionCut.axis) {
-      case 'x':
+      case "x":
         normal = new THREE.Vector3(sectionCut.flip ? 1 : -1, 0, 0);
         distance = center.x + (sectionCut.position - 0.5) * size;
         break;
-      case 'y':
+      case "y":
         normal = new THREE.Vector3(0, sectionCut.flip ? 1 : -1, 0);
         distance = sectionCut.position * maxHeight;
         break;
-      case 'z':
+      case "z":
         normal = new THREE.Vector3(0, 0, sectionCut.flip ? 1 : -1);
         distance = center.y + (sectionCut.position - 0.5) * size;
         break;
     }
 
-    clippingPlaneRef.current.set(normal, sectionCut.flip ? distance : -distance);
+    clippingPlaneRef.current.set(
+      normal,
+      sectionCut.flip ? distance : -distance
+    );
 
     // Apply clipping plane to all building materials
     buildingMeshesRef.current.forEach((obj) => {
       obj.traverse((child) => {
-        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+        if (
+          child instanceof THREE.Mesh &&
+          child.material instanceof THREE.MeshStandardMaterial
+        ) {
           child.material.clippingPlanes = [clippingPlaneRef.current];
           child.material.clipShadows = true;
           child.material.side = THREE.DoubleSide;
@@ -696,11 +810,14 @@ export function Scene3D({
 
     // Add section plane helper (visual indicator)
     const helperSize = Math.max(size, maxHeight) * 1.2;
-    const helper = new THREE.PlaneHelper(clippingPlaneRef.current, helperSize, 0xff6600);
-    helper.name = 'SectionHelper';
+    const helper = new THREE.PlaneHelper(
+      clippingPlaneRef.current,
+      helperSize,
+      0xff6600
+    );
+    helper.name = "SectionHelper";
     scene.add(helper);
     sectionHelperRef.current = helper;
-
   }, [sectionCut, sceneBounds]);
 
   // Handle measurement click events from the container
@@ -714,9 +831,12 @@ export function Scene3D({
       onMeasurementClick(customEvent.detail);
     };
 
-    container.addEventListener('measurementclick', handleMeasurementClickEvent);
+    container.addEventListener("measurementclick", handleMeasurementClickEvent);
     return () => {
-      container.removeEventListener('measurementclick', handleMeasurementClickEvent);
+      container.removeEventListener(
+        "measurementclick",
+        handleMeasurementClickEvent
+      );
     };
   }, [measurementMode, onMeasurementClick]);
 
@@ -732,8 +852,16 @@ export function Scene3D({
 
     // Render each measurement
     measurements.forEach((measurement) => {
-      const p1 = new THREE.Vector3(measurement.point1.x, measurement.point1.y, measurement.point1.z);
-      const p2 = new THREE.Vector3(measurement.point2.x, measurement.point2.y, measurement.point2.z);
+      const p1 = new THREE.Vector3(
+        measurement.point1.x,
+        measurement.point1.y,
+        measurement.point1.z
+      );
+      const p2 = new THREE.Vector3(
+        measurement.point2.x,
+        measurement.point2.y,
+        measurement.point2.z
+      );
 
       // Measurement line (dashed)
       const lineGeo = new THREE.BufferGeometry().setFromPoints([p1, p2]);
@@ -765,16 +893,16 @@ export function Scene3D({
         (p1.z + p2.z) / 2
       );
 
-      const canvas = document.createElement('canvas');
+      const canvas = document.createElement("canvas");
       canvas.width = 128;
       canvas.height = 48;
-      const ctx = canvas.getContext('2d')!;
-      ctx.fillStyle = '#ff4444';
+      const ctx = canvas.getContext("2d")!;
+      ctx.fillStyle = "#ff4444";
       ctx.fillRect(0, 0, 128, 48);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 24px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 24px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
       ctx.fillText(`${measurement.distance.toFixed(1)}m`, 64, 24);
 
       const texture = new THREE.CanvasTexture(canvas);
@@ -821,12 +949,13 @@ export function Scene3D({
   // Update cursor based on measurement mode
   useEffect(() => {
     if (!containerRef.current) return;
-    containerRef.current.style.cursor = measurementMode ? 'crosshair' : 'grab';
+    containerRef.current.style.cursor = measurementMode ? "crosshair" : "grab";
   }, [measurementMode]);
 
   // Shadow heatmap rendering
   useEffect(() => {
-    if (!heatmapMeshRef.current || !sunLightRef.current || !sceneRef.current) return;
+    if (!heatmapMeshRef.current || !sunLightRef.current || !sceneRef.current)
+      return;
 
     const heatmap = heatmapMeshRef.current;
     const showHeatmap = displaySettings?.showShadowHeatmap ?? false;
@@ -842,10 +971,10 @@ export function Scene3D({
     // Generate heatmap texture based on shadow coverage
     const { center, size } = sceneBounds;
     const gridSize = 32; // Resolution of heatmap
-    const canvas = document.createElement('canvas');
+    const canvas = document.createElement("canvas");
     canvas.width = gridSize;
     canvas.height = gridSize;
-    const ctx = canvas.getContext('2d')!;
+    const ctx = canvas.getContext("2d")!;
 
     // Get sun direction
     const sunDir = sunLightRef.current.position.clone().normalize();
@@ -871,7 +1000,10 @@ export function Scene3D({
         const rayToSun = sunDir.clone();
 
         raycasterRef.current.set(testPoint, rayToSun);
-        const intersects = raycasterRef.current.intersectObjects(buildingObjects, false);
+        const intersects = raycasterRef.current.intersectObjects(
+          buildingObjects,
+          false
+        );
         inShadow = intersects.length > 0;
 
         // Color: blue for sun, red for shadow
@@ -895,8 +1027,12 @@ export function Scene3D({
     // Position and scale heatmap
     heatmap.position.set(center.x, 0.2, center.y);
     heatmap.scale.set(size / 500, size / 500, 1);
-
-  }, [displaySettings?.showShadowHeatmap, displaySettings?.heatmapOpacity, sceneBounds, currentTime]);
+  }, [
+    displaySettings?.showShadowHeatmap,
+    displaySettings?.heatmapOpacity,
+    sceneBounds,
+    currentTime,
+  ]);
 
   return (
     <div
@@ -908,237 +1044,25 @@ export function Scene3D({
   );
 }
 
-// Helper: Create building mesh with LOD (Level of Detail) for performance
-function createBuildingMesh(
-  building: Building,
-  scale: number,
-  selectedFloor?: number,
-  isSelected?: boolean
-): THREE.LOD {
-  const lod = new THREE.LOD();
-
-  // Scale footprint points
-  const points = building.footprint.map((p) => ({
-    x: p.x * scale,
-    y: p.y * scale,
-  }));
-
-  // Calculate center and bounding box
-  const centerX = points.length > 0
-    ? points.reduce((sum, p) => sum + p.x, 0) / points.length
-    : 0;
-  const centerZ = points.length > 0
-    ? points.reduce((sum, p) => sum + p.y, 0) / points.length
-    : 0;
-
-  // Calculate width and depth for LOD box
-  const minX = Math.min(...points.map(p => p.x - centerX));
-  const maxX = Math.max(...points.map(p => p.x - centerX));
-  const minZ = Math.min(...points.map(p => p.y - centerZ));
-  const maxZ = Math.max(...points.map(p => p.y - centerZ));
-  const width = maxX - minX || 10;
-  const depth = maxZ - minZ || 10;
-
-  // Shared material for all LOD levels
-  const buildingColor = new THREE.Color(building.color);
-  const material = new THREE.MeshStandardMaterial({
-    color: buildingColor,
-    roughness: 0.6,
-    metalness: 0.15,
-    transparent: isSelected && selectedFloor !== undefined,
-    opacity: isSelected && selectedFloor !== undefined ? 0.4 : 1.0,
-  });
-
-  // LOW LOD: Simple box (for far distances) - cheapest to render
-  const lowGroup = new THREE.Group();
-  const lowGeo = new THREE.BoxGeometry(width, building.totalHeight, depth);
-  const lowMesh = new THREE.Mesh(lowGeo, material);
-  lowMesh.position.y = building.totalHeight / 2;
-  lowMesh.castShadow = true;
-  lowMesh.receiveShadow = true;
-  lowGroup.add(lowMesh);
-
-  // MEDIUM LOD: Extruded shape without roof detail
-  const medGroup = new THREE.Group();
-  if (points.length >= 3) {
-    const medShape = new THREE.Shape();
-    points.forEach((point, index) => {
-      const x = point.x - centerX;
-      const z = point.y - centerZ;
-      if (index === 0) medShape.moveTo(x, z);
-      else medShape.lineTo(x, z);
-    });
-    medShape.closePath();
-
-    const medGeo = new THREE.ExtrudeGeometry(medShape, {
-      steps: 1,
-      depth: building.totalHeight,
-      bevelEnabled: false,
-    });
-    medGeo.rotateX(-Math.PI / 2);
-
-    const medMesh = new THREE.Mesh(medGeo, material);
-    medMesh.castShadow = true;
-    medMesh.receiveShadow = true;
-    medGroup.add(medMesh);
-  } else {
-    // Fallback to box for invalid footprints
-    medGroup.add(lowMesh.clone());
-  }
-
-  // HIGH LOD: Full detail with roof (for close distances)
-  const highGroup = new THREE.Group();
-  if (points.length >= 3) {
-    const highShape = new THREE.Shape();
-    points.forEach((point, index) => {
-      const x = point.x - centerX;
-      const z = point.y - centerZ;
-      if (index === 0) highShape.moveTo(x, z);
-      else highShape.lineTo(x, z);
-    });
-    highShape.closePath();
-
-    const highGeo = new THREE.ExtrudeGeometry(highShape, {
-      steps: 1,
-      depth: building.totalHeight,
-      bevelEnabled: false,
-    });
-    highGeo.rotateX(-Math.PI / 2);
-
-    const highMesh = new THREE.Mesh(highGeo, material);
-    highMesh.castShadow = true;
-    highMesh.receiveShadow = true;
-    highGroup.add(highMesh);
-
-    // Add roof detail
-    const roofShape = new THREE.Shape();
-    points.forEach((point, index) => {
-      const x = point.x - centerX;
-      const z = point.y - centerZ;
-      if (index === 0) roofShape.moveTo(x, z);
-      else roofShape.lineTo(x, z);
-    });
-    roofShape.closePath();
-
-    const roofGeo = new THREE.ShapeGeometry(roofShape);
-    roofGeo.rotateX(-Math.PI / 2);
-    const roofMat = new THREE.MeshStandardMaterial({
-      color: buildingColor.clone().multiplyScalar(0.8),
-      roughness: 0.4,
-      metalness: 0.1,
-    });
-    const roof = new THREE.Mesh(roofGeo, roofMat);
-    roof.position.y = building.totalHeight + 0.1;
-    roof.receiveShadow = true;
-    highGroup.add(roof);
-
-    // Add floor markers and highlight selected floor
-    if (isSelected) {
-      // Add floor level markers (horizontal lines)
-      for (let floor = 1; floor <= building.floors; floor++) {
-        const floorHeight = floor * building.floorHeight;
-
-        // Floor marker outline
-        const outlinePoints = points.map(p => new THREE.Vector3(p.x - centerX, floorHeight, p.y - centerZ));
-        outlinePoints.push(outlinePoints[0]); // Close the loop
-        const outlineGeo = new THREE.BufferGeometry().setFromPoints(outlinePoints);
-        const outlineMat = new THREE.LineBasicMaterial({
-          color: floor === selectedFloor ? 0xfbbf24 : 0x666666, // Amber for selected, gray for others
-          linewidth: floor === selectedFloor ? 3 : 1,
-        });
-        const outline = new THREE.Line(outlineGeo, outlineMat);
-        highGroup.add(outline);
-
-        // Floor label
-        if (floor === selectedFloor || building.floors <= 10) {
-          const canvas = document.createElement('canvas');
-          canvas.width = 64;
-          canvas.height = 32;
-          const ctx = canvas.getContext('2d')!;
-          ctx.fillStyle = floor === selectedFloor ? '#fbbf24' : '#888888';
-          ctx.font = 'bold 20px Arial';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(`F${floor}`, 32, 16);
-
-          const texture = new THREE.CanvasTexture(canvas);
-          const labelMat = new THREE.SpriteMaterial({ map: texture });
-          const label = new THREE.Sprite(labelMat);
-          label.position.set(maxX + 5, floorHeight - building.floorHeight / 2, 0);
-          label.scale.set(8, 4, 1);
-          highGroup.add(label);
-        }
-      }
-
-      // Highlight selected floor with a semi-transparent plane
-      if (selectedFloor !== undefined && selectedFloor >= 1 && selectedFloor <= building.floors) {
-        const floorBottom = (selectedFloor - 1) * building.floorHeight;
-        const floorTop = selectedFloor * building.floorHeight;
-
-        // Create highlighted floor section
-        const highlightShape = new THREE.Shape();
-        points.forEach((point, index) => {
-          const x = point.x - centerX;
-          const z = point.y - centerZ;
-          if (index === 0) highlightShape.moveTo(x, z);
-          else highlightShape.lineTo(x, z);
-        });
-        highlightShape.closePath();
-
-        const highlightGeo = new THREE.ExtrudeGeometry(highlightShape, {
-          steps: 1,
-          depth: floorTop - floorBottom,
-          bevelEnabled: false,
-        });
-        highlightGeo.rotateX(-Math.PI / 2);
-
-        const highlightMat = new THREE.MeshStandardMaterial({
-          color: 0xfbbf24, // Amber
-          transparent: true,
-          opacity: 0.6,
-          roughness: 0.4,
-          metalness: 0.1,
-        });
-
-        const highlight = new THREE.Mesh(highlightGeo, highlightMat);
-        highlight.position.y = floorBottom;
-        highlight.castShadow = true;
-        highlight.receiveShadow = true;
-        highGroup.add(highlight);
-      }
-    }
-  } else {
-    // Fallback to box
-    highGroup.add(lowMesh.clone());
-  }
-
-  // Add LOD levels with distance thresholds
-  // The distances are tuned based on typical building sizes
-  lod.addLevel(highGroup, 0);     // High detail: 0-200 units
-  lod.addLevel(medGroup, 200);    // Medium detail: 200-500 units
-  lod.addLevel(lowGroup, 500);    // Low detail: 500+ units
-
-  // Position the LOD at the building center
-  lod.position.set(centerX, 0, centerZ);
-  lod.userData = { buildingId: building.id };
-
-  return lod;
-}
-
 /**
  * Create a north arrow indicator for the 3D scene
  * Points towards geographic north (negative Z in Three.js convention)
  */
 function createNorthArrow(): THREE.Group {
   const group = new THREE.Group();
-  group.name = 'NorthArrow';
+  group.name = "NorthArrow";
 
   // Arrow body (cylinder pointing up, then we'll rotate)
   const arrowLength = 15;
   const arrowRadius = 1;
 
   // North arrow shaft
-  const shaftGeo = new THREE.CylinderGeometry(arrowRadius * 0.5, arrowRadius * 0.5, arrowLength, 8);
+  const shaftGeo = new THREE.CylinderGeometry(
+    arrowRadius * 0.5,
+    arrowRadius * 0.5,
+    arrowLength,
+    8
+  );
   const northMaterial = new THREE.MeshStandardMaterial({
     color: 0xcc0000, // Red for north
     roughness: 0.5,
@@ -1160,7 +1084,12 @@ function createNorthArrow(): THREE.Group {
     roughness: 0.5,
     metalness: 0.3,
   });
-  const southShaftGeo = new THREE.CylinderGeometry(arrowRadius * 0.3, arrowRadius * 0.3, arrowLength * 0.5, 8);
+  const southShaftGeo = new THREE.CylinderGeometry(
+    arrowRadius * 0.3,
+    arrowRadius * 0.3,
+    arrowLength * 0.5,
+    8
+  );
   const southShaft = new THREE.Mesh(southShaftGeo, southMaterial);
   southShaft.position.y = arrowLength * 0.25;
   southShaft.position.z = arrowLength * 0.6;
@@ -1168,15 +1097,15 @@ function createNorthArrow(): THREE.Group {
   group.add(southShaft);
 
   // "N" label using a plane with text texture
-  const canvas = document.createElement('canvas');
+  const canvas = document.createElement("canvas");
   canvas.width = 64;
   canvas.height = 64;
-  const ctx = canvas.getContext('2d')!;
-  ctx.fillStyle = '#cc0000';
-  ctx.font = 'bold 48px Arial';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('N', 32, 32);
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#cc0000";
+  ctx.font = "bold 48px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("N", 32, 32);
 
   const texture = new THREE.CanvasTexture(canvas);
   const labelMaterial = new THREE.SpriteMaterial({ map: texture });
@@ -1231,7 +1160,11 @@ function updateSunRay(
 
   // Ray line (dashed)
   const rayLength = sunPoint.distanceTo(groundPoint) * 0.8; // Don't go all the way to sun
-  const rayStart = sunPoint.clone().add(direction.clone().multiplyScalar(sunPoint.distanceTo(groundPoint) * 0.1));
+  const rayStart = sunPoint
+    .clone()
+    .add(
+      direction.clone().multiplyScalar(sunPoint.distanceTo(groundPoint) * 0.1)
+    );
   const rayEnd = groundPoint.clone();
 
   const rayGeo = new THREE.BufferGeometry().setFromPoints([rayStart, rayEnd]);
@@ -1259,7 +1192,11 @@ function updateSunRay(
   group.add(arrow);
 
   // Sun direction indicator on ground (shadow of arrow)
-  const groundArrowGeo = new THREE.ConeGeometry(arrowSize * 1.5, arrowSize * 3, 8);
+  const groundArrowGeo = new THREE.ConeGeometry(
+    arrowSize * 1.5,
+    arrowSize * 3,
+    8
+  );
   const groundArrowMaterial = new THREE.MeshBasicMaterial({
     color: 0x333333,
     transparent: true,
@@ -1269,7 +1206,11 @@ function updateSunRay(
   groundArrow.position.set(center.x, 0.5, center.y);
 
   // Point towards where shadow will fall (opposite of sun)
-  const shadowDir = new THREE.Vector3(-direction.x, 0, -direction.z).normalize();
+  const shadowDir = new THREE.Vector3(
+    -direction.x,
+    0,
+    -direction.z
+  ).normalize();
   groundArrow.position.add(shadowDir.multiplyScalar(arrowSize * 4));
   groundArrow.rotation.x = -Math.PI / 2;
   groundArrow.rotation.z = Math.atan2(-direction.x, -direction.z);
@@ -1290,9 +1231,13 @@ function updateScaleBar(
   // Clear existing children
   while (group.children.length > 0) {
     const child = group.children[0];
-    if (child instanceof THREE.Line || child instanceof THREE.Mesh || child instanceof THREE.Sprite) {
-      if ('geometry' in child) child.geometry.dispose();
-      if ('material' in child) {
+    if (
+      child instanceof THREE.Line ||
+      child instanceof THREE.Mesh ||
+      child instanceof THREE.Sprite
+    ) {
+      if ("geometry" in child) child.geometry.dispose();
+      if ("material" in child) {
         const mat = child.material;
         if (mat instanceof THREE.Material) mat.dispose();
       }
@@ -1303,7 +1248,7 @@ function updateScaleBar(
   // Calculate a nice round scale bar length
   const targetLength = sceneSize * 0.25;
   const possibleLengths = [10, 20, 25, 50, 100, 200, 250, 500, 1000];
-  let scaleLength = possibleLengths.find(l => l >= targetLength * 0.5) || 100;
+  let scaleLength = possibleLengths.find((l) => l >= targetLength * 0.5) || 100;
   if (scaleLength > targetLength * 2) scaleLength = targetLength;
 
   // Position at bottom-right corner of scene
@@ -1329,16 +1274,17 @@ function updateScaleBar(
   group.add(rightCap);
 
   // Label with distance
-  const canvas = document.createElement('canvas');
+  const canvas = document.createElement("canvas");
   canvas.width = 128;
   canvas.height = 64;
-  const ctx = canvas.getContext('2d')!;
-  ctx.fillStyle = '#333333';
-  ctx.font = 'bold 32px Arial';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#333333";
+  ctx.font = "bold 32px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
 
-  const labelText = scaleLength >= 1000 ? `${scaleLength / 1000}km` : `${scaleLength}m`;
+  const labelText =
+    scaleLength >= 1000 ? `${scaleLength / 1000}km` : `${scaleLength}m`;
   ctx.fillText(labelText, 64, 32);
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -1349,15 +1295,15 @@ function updateScaleBar(
   group.add(label);
 
   // Zero label
-  const zeroCanvas = document.createElement('canvas');
+  const zeroCanvas = document.createElement("canvas");
   zeroCanvas.width = 64;
   zeroCanvas.height = 64;
-  const zeroCtx = zeroCanvas.getContext('2d')!;
-  zeroCtx.fillStyle = '#666666';
-  zeroCtx.font = 'bold 24px Arial';
-  zeroCtx.textAlign = 'center';
-  zeroCtx.textBaseline = 'middle';
-  zeroCtx.fillText('0', 32, 32);
+  const zeroCtx = zeroCanvas.getContext("2d")!;
+  zeroCtx.fillStyle = "#666666";
+  zeroCtx.font = "bold 24px Arial";
+  zeroCtx.textAlign = "center";
+  zeroCtx.textBaseline = "middle";
+  zeroCtx.fillText("0", 32, 32);
 
   const zeroTexture = new THREE.CanvasTexture(zeroCanvas);
   const zeroMaterial = new THREE.SpriteMaterial({ map: zeroTexture });
@@ -1369,7 +1315,12 @@ function updateScaleBar(
 
 /**
  * Update the sun path arc visualization
- * Shows the arc of the sun's daily trajectory
+ * Shows seasonal sun paths like the reference image:
+ * - Summer solstice (highest arc)
+ * - Spring/Autumn equinox (middle arc)
+ * - Winter solstice (lowest arc)
+ * All arcs span from East to West with sun icons along them
+ * The current sun position is shown as a glowing sphere on its orbit
  */
 function updateSunPath(
   group: THREE.Group,
@@ -1377,7 +1328,8 @@ function updateSunPath(
   sceneSize: number,
   latitude: number,
   longitude: number,
-  date: Date
+  date: Date,
+  currentTime: Date
 ): void {
   // Clear existing children
   while (group.children.length > 0) {
@@ -1387,137 +1339,337 @@ function updateSunPath(
       if (child.material instanceof THREE.Material) {
         child.material.dispose();
       }
+    } else if (child instanceof THREE.Sprite) {
+      if (child.material.map) child.material.map.dispose();
+      child.material.dispose();
     }
     group.remove(child);
   }
 
-  // Get sun times for the day
+  // Arc radius - size of the dome
+  // Increased arc radius to keep orbit paths further from buildings
+  const arcRadius = Math.max(sceneSize * 1.2, 150);
+  const currentYear = date.getFullYear();
+
+  // Define seasonal dates with their characteristics
+  const seasons = [
+    { name: "Summer solstice", date: new Date(currentYear, 5, 21), color: 0xff6600, lineWidth: 2 },
+    { name: "Spring and Autumn\nsolstice", date: new Date(currentYear, 2, 21), color: 0x66cc66, lineWidth: 2 },
+    { name: "Winter solstice", date: new Date(currentYear, 11, 21), color: 0x3399ff, lineWidth: 2 },
+  ];
+
+  // Create horizon ellipse (ground plane)
+  const horizonPoints: THREE.Vector3[] = [];
+  for (let i = 0; i <= 64; i++) {
+    const angle = (i / 64) * Math.PI * 2;
+    horizonPoints.push(new THREE.Vector3(
+      center.x + Math.cos(angle) * arcRadius,
+      0.5,
+      center.y + Math.sin(angle) * arcRadius * 0.6 // Elliptical for perspective effect
+    ));
+  }
+  const horizonGeo = new THREE.BufferGeometry().setFromPoints(horizonPoints);
+  const horizonMat = new THREE.LineBasicMaterial({
+    color: 0x666666,
+    transparent: true,
+    opacity: 0.5,
+  });
+  const horizonLine = new THREE.Line(horizonGeo, horizonMat);
+  group.add(horizonLine);
+
+  // Add "Horizontal surface" label
+  const surfaceLabel = createSeasonLabel("Horizontal surface", 0x888888);
+  surfaceLabel.position.set(center.x + arcRadius * 0.5, 2, center.y + arcRadius * 0.3);
+  surfaceLabel.scale.set(20, 8, 1);
+  group.add(surfaceLabel);
+
+  // Add cardinal direction markers on horizon (matching reference: N=back, S=front, E=right, W=left)
+  const directions = [
+    { label: "N", x: center.x, z: center.y - arcRadius * 0.8, color: 0x888888 },  // Back (negative Z)
+    { label: "S", x: center.x, z: center.y + arcRadius * 0.5, color: 0x888888 },  // Front (positive Z)
+    { label: "E", x: center.x + arcRadius * 1.1, z: center.y, color: 0x888888 },  // Right (positive X)
+    { label: "W", x: center.x - arcRadius * 1.1, z: center.y, color: 0x888888 },  // Left (negative X)
+  ];
+
+  directions.forEach(({ label, x, z, color }) => {
+    const dirLabel = createDirectionLabel(label, color);
+    dirLabel.position.set(x, 1, z);
+    group.add(dirLabel);
+  });
+
+  // Create seasonal arcs (East to West) - only show paths, no sun icons
+  seasons.forEach((season) => {
+    const pathData = createSeasonalArc(center, arcRadius, latitude, longitude, season.date, season.color);
+    if (pathData) {
+      group.add(pathData.line);
+
+      // Add season label (no sun icon - only current sun shown)
+      const label = createSeasonLabel(season.name, season.color);
+      if (pathData.labelPoint) {
+        label.position.copy(pathData.labelPoint);
+        group.add(label);
+      }
+    }
+  });
+
+  // Add current day path (dashed line)
+  const currentPath = createSeasonalArc(center, arcRadius, latitude, longitude, date, 0xffcc00);
+  if (currentPath) {
+    // Make current day path dashed to distinguish from seasonal paths
+    const dashedMat = new THREE.LineDashedMaterial({
+      color: 0xffcc00,
+      dashSize: 3,
+      gapSize: 2,
+      transparent: true,
+      opacity: 0.8,
+    });
+    currentPath.line.material = dashedMat;
+    currentPath.line.computeLineDistances();
+    group.add(currentPath.line);
+  }
+
+  // Add CURRENT SUN POSITION on the orbit (smaller glowing sphere)
+  const currentSunPos = SunCalc.getPosition(currentTime, latitude, longitude);
+  if (currentSunPos.altitude > 0) {
+    // Calculate sun position on the orbit path (same formula as createSeasonalArc)
+    const sunX = center.x - Math.sin(currentSunPos.azimuth) * Math.cos(currentSunPos.altitude) * arcRadius;
+    const sunY = Math.sin(currentSunPos.altitude) * arcRadius;
+    const sunZ = center.y + Math.cos(currentSunPos.azimuth) * Math.cos(currentSunPos.altitude) * arcRadius * 0.6;
+
+    // Create sun sphere (smaller size)
+    const sunSize = arcRadius * 0.05;
+    const sunGeo = new THREE.SphereGeometry(sunSize, 24, 24);
+    const sunMat = new THREE.MeshBasicMaterial({
+      color: 0xffdd00,
+    });
+    const sunSphere = new THREE.Mesh(sunGeo, sunMat);
+    sunSphere.position.set(sunX, sunY, sunZ);
+    group.add(sunSphere);
+
+    // Add subtle glow effect
+    const glowGeo = new THREE.SphereGeometry(sunSize * 1.4, 24, 24);
+    const glowMat = new THREE.MeshBasicMaterial({
+      color: 0xffaa00,
+      transparent: true,
+      opacity: 0.25,
+    });
+    const glowSphere = new THREE.Mesh(glowGeo, glowMat);
+    glowSphere.position.set(sunX, sunY, sunZ);
+    group.add(glowSphere);
+
+    // Add small rays emanating from sun
+    const rayCount = 8;
+    const rayLength = sunSize * 2;
+    for (let i = 0; i < rayCount; i++) {
+      const angle = (i / rayCount) * Math.PI * 2;
+      const rayGeo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(Math.cos(angle) * rayLength, Math.sin(angle) * rayLength, 0)
+      ]);
+      const rayMat = new THREE.LineBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.5 });
+      const ray = new THREE.Line(rayGeo, rayMat);
+      ray.position.set(sunX, sunY, sunZ);
+      ray.lookAt(center.x, 0, center.y);
+      group.add(ray);
+    }
+
+    // Add time label next to sun
+    const timeStr = currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    const timeLabel = createSeasonLabel(timeStr, 0xffcc00);
+    timeLabel.position.set(sunX + 8, sunY + 5, sunZ);
+    timeLabel.scale.set(10, 3, 1);
+    group.add(timeLabel);
+  } else {
+    // Sun below horizon - show indicator
+    const belowLabel = createSeasonLabel("Sun below horizon", 0x666666);
+    belowLabel.position.set(center.x, 10, center.y);
+    group.add(belowLabel);
+  }
+}
+
+/**
+ * Create a seasonal sun arc (East to West) for a specific date
+ */
+function createSeasonalArc(
+  center: Point2D,
+  arcRadius: number,
+  latitude: number,
+  longitude: number,
+  date: Date,
+  color: number
+): { line: THREE.Line; peakPoint: THREE.Vector3 | null; labelPoint: THREE.Vector3 | null } | null {
   const sunTimes = SunCalc.getTimes(date, latitude, longitude);
   const sunrise = sunTimes.sunrise;
   const sunset = sunTimes.sunset;
 
   if (!sunrise || !sunset || isNaN(sunrise.getTime()) || isNaN(sunset.getTime())) {
-    return; // No valid sun path (polar day/night)
+    return null;
   }
 
-  // Calculate arc radius
-  const arcRadius = Math.max(sceneSize * 1.2, 300);
-
-  // Sample points along the sun's path
   const pathPoints: THREE.Vector3[] = [];
-  const numSamples = 48; // Every 30 minutes approximately
+  const numSamples = 48;
+  let peakPoint: THREE.Vector3 | null = null;
+  let labelPoint: THREE.Vector3 | null = null;
+  let maxAltitude = 0;
 
   for (let i = 0; i <= numSamples; i++) {
     const t = i / numSamples;
     const sampleTime = new Date(sunrise.getTime() + t * (sunset.getTime() - sunrise.getTime()));
     const sunPos = SunCalc.getPosition(sampleTime, latitude, longitude);
 
-    // Skip if sun is below horizon
     if (sunPos.altitude <= 0) continue;
 
-    // Convert to 3D coordinates
+    // Position arc around center - E to W trajectory, tilted towards South
     const x = center.x - Math.sin(sunPos.azimuth) * Math.cos(sunPos.altitude) * arcRadius;
     const y = Math.sin(sunPos.altitude) * arcRadius;
-    const z = center.y - Math.cos(sunPos.azimuth) * Math.cos(sunPos.altitude) * arcRadius;
+    const z = center.y + Math.cos(sunPos.azimuth) * Math.cos(sunPos.altitude) * arcRadius * 0.6;
 
-    pathPoints.push(new THREE.Vector3(x, y, z));
+    const point = new THREE.Vector3(x, y, z);
+    pathPoints.push(point);
+
+    if (sunPos.altitude > maxAltitude) {
+      maxAltitude = sunPos.altitude;
+      peakPoint = point.clone();
+    }
+
+    // Label point at ~25% along the arc
+    if (i === Math.floor(numSamples * 0.25)) {
+      labelPoint = new THREE.Vector3(x - 15, y + 5, z);
+    }
   }
 
-  if (pathPoints.length < 2) return;
+  if (pathPoints.length < 2) return null;
 
-  // Create the sun path arc
+  // Create arc line
   const pathGeo = new THREE.BufferGeometry().setFromPoints(pathPoints);
   const pathMaterial = new THREE.LineBasicMaterial({
-    color: 0xffcc00,
+    color: color,
     transparent: true,
-    opacity: 0.6,
+    opacity: 0.8,
     linewidth: 2,
   });
   const pathLine = new THREE.Line(pathGeo, pathMaterial);
-  group.add(pathLine);
 
-  // Add time markers along the path
-  const markerTimes = [6, 9, 12, 15, 18]; // Hours to mark
-  markerTimes.forEach(hour => {
-    const markerDate = new Date(date);
-    markerDate.setHours(hour, 0, 0, 0);
+  return { line: pathLine, peakPoint, labelPoint };
+}
 
-    // Check if this time is within sunrise-sunset
-    if (markerDate < sunrise || markerDate > sunset) return;
+/**
+ * Create a direction label (N, S, E, W)
+ */
+function createDirectionLabel(text: string, color: number): THREE.Sprite {
+  const canvas = document.createElement("canvas");
+  canvas.width = 32;
+  canvas.height = 32;
+  const ctx = canvas.getContext("2d")!;
 
-    const sunPos = SunCalc.getPosition(markerDate, latitude, longitude);
-    if (sunPos.altitude <= 0) return;
+  ctx.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
+  ctx.font = "bold 24px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, 16, 16);
 
-    const x = center.x - Math.sin(sunPos.azimuth) * Math.cos(sunPos.altitude) * arcRadius;
-    const y = Math.sin(sunPos.altitude) * arcRadius;
-    const z = center.y - Math.cos(sunPos.azimuth) * Math.cos(sunPos.altitude) * arcRadius;
+  const texture = new THREE.CanvasTexture(canvas);
+  const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+  const sprite = new THREE.Sprite(material);
+  sprite.scale.set(8, 8, 1);
+  return sprite;
+}
 
-    // Small sphere marker
-    const markerGeo = new THREE.SphereGeometry(3);
-    const markerMaterial = new THREE.MeshBasicMaterial({
-      color: hour === 12 ? 0xff6600 : 0xffcc00,
-    });
-    const marker = new THREE.Mesh(markerGeo, markerMaterial);
-    marker.position.set(x, y, z);
-    group.add(marker);
+/**
+ * Create a season label sprite
+ */
+function createSeasonLabel(text: string, color: number): THREE.Sprite {
+  const canvas = document.createElement("canvas");
+  const lines = text.split('\n');
+  canvas.width = 120;
+  canvas.height = lines.length > 1 ? 40 : 24;
+  const ctx = canvas.getContext("2d")!;
 
-    // Time label
-    const canvas = document.createElement('canvas');
+  // Background
+  ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Border
+  ctx.strokeStyle = `#${color.toString(16).padStart(6, '0')}`;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
+
+  // Text
+  ctx.fillStyle = "#333333";
+  ctx.font = "12px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  if (lines.length > 1) {
+    ctx.fillText(lines[0], canvas.width / 2, 12);
+    ctx.fillText(lines[1], canvas.width / 2, 28);
+  } else {
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+  const sprite = new THREE.Sprite(material);
+  sprite.scale.set(lines.length > 1 ? 18 : 15, lines.length > 1 ? 6 : 4, 1);
+  return sprite;
+}
+
+/**
+ * Update the cardinal direction labels (N, S, E, W)
+ * Creates 3D sprites positioned at the edges of the scene
+ */
+function updateCardinalDirections(
+  group: THREE.Group,
+  center: Point2D,
+  sceneSize: number
+): void {
+  // Clear existing children
+  while (group.children.length > 0) {
+    const child = group.children[0];
+    if (child instanceof THREE.Sprite) {
+      if (child.material.map) child.material.map.dispose();
+      child.material.dispose();
+    }
+    group.remove(child);
+  }
+
+  const directions = [
+    { label: "N", x: center.x, z: center.y - sceneSize * 0.55, color: "#ef4444" }, // North (red) - negative Z
+    { label: "S", x: center.x, z: center.y + sceneSize * 0.55, color: "#9ca3af" }, // South - positive Z
+    { label: "E", x: center.x + sceneSize * 0.55, z: center.y, color: "#9ca3af" }, // East - positive X
+    { label: "W", x: center.x - sceneSize * 0.55, z: center.y, color: "#9ca3af" }, // West - negative X
+  ];
+
+  const labelSize = Math.max(sceneSize * 0.08, 20);
+
+  directions.forEach(({ label, x, z, color }) => {
+    // Create canvas for the label
+    const canvas = document.createElement("canvas");
     canvas.width = 64;
-    canvas.height = 32;
-    const ctx = canvas.getContext('2d')!;
-    ctx.fillStyle = '#ff9900';
-    ctx.font = 'bold 20px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(`${hour}:00`, 32, 16);
+    canvas.height = 64;
+    const ctx = canvas.getContext("2d")!;
+
+    // Draw background circle
+    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.beginPath();
+    ctx.arc(32, 32, 28, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Draw label
+    ctx.fillStyle = color;
+    ctx.font = "bold 36px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, 32, 32);
 
     const texture = new THREE.CanvasTexture(canvas);
-    const labelMaterial = new THREE.SpriteMaterial({ map: texture });
-    const label = new THREE.Sprite(labelMaterial);
-    label.position.set(x, y + 10, z);
-    label.scale.set(20, 10, 1);
-    group.add(label);
-  });
-
-  // Add sunrise/sunset markers
-  [sunrise, sunset].forEach((time, index) => {
-    const sunPos = SunCalc.getPosition(time, latitude, longitude);
-    const x = center.x - Math.sin(sunPos.azimuth) * Math.cos(sunPos.altitude) * arcRadius;
-    const y = Math.max(Math.sin(sunPos.altitude) * arcRadius, 5);
-    const z = center.y - Math.cos(sunPos.azimuth) * Math.cos(sunPos.altitude) * arcRadius;
-
-    // Sunrise/sunset marker
-    const markerGeo = new THREE.SphereGeometry(5);
-    const markerMaterial = new THREE.MeshBasicMaterial({
-      color: index === 0 ? 0xff6600 : 0xff3300,
+    const material = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
     });
-    const marker = new THREE.Mesh(markerGeo, markerMaterial);
-    marker.position.set(x, y, z);
-    group.add(marker);
-
-    // Label
-    const canvas = document.createElement('canvas');
-    canvas.width = 128;
-    canvas.height = 32;
-    const ctx = canvas.getContext('2d')!;
-    ctx.fillStyle = index === 0 ? '#ff6600' : '#ff3300';
-    ctx.font = 'bold 18px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(
-      index === 0
-        ? `Sunrise ${time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`
-        : `Sunset ${time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
-      64,
-      16
-    );
-
-    const texture = new THREE.CanvasTexture(canvas);
-    const labelMaterial = new THREE.SpriteMaterial({ map: texture });
-    const label = new THREE.Sprite(labelMaterial);
-    label.position.set(x, y + 15, z);
-    label.scale.set(40, 10, 1);
-    group.add(label);
+    const sprite = new THREE.Sprite(material);
+    sprite.position.set(x, 5, z); // Slightly above ground
+    sprite.scale.set(labelSize, labelSize, 1);
+    group.add(sprite);
   });
 }

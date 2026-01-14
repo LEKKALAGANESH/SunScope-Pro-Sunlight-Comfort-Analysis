@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type {
   Project,
   Building,
+  Amenity,
   ProjectImage,
   SiteConfig,
   AnalysisResults,
@@ -14,6 +15,7 @@ import type {
   DisplaySettings,
   Measurement,
   Vector3,
+  ImportSummary,
 } from '../types';
 
 // Storage version for migrations
@@ -91,7 +93,10 @@ interface ProjectState {
   setIsAnalyzing: (isAnalyzing: boolean) => void;
   toggleDetectedBuilding: (buildingId: string) => void;
   selectAllDetectedBuildings: (selected: boolean) => void;
-  importSelectedBuildings: () => void;
+  toggleDetectedAmenity: (amenityId: string) => void;
+  selectAllDetectedAmenities: (selected: boolean) => void;
+  importSelectedElements: () => ImportSummary;
+  importSelectedBuildings: () => void; // Legacy - calls importSelectedElements
 
   // Sample project loading
   loadSampleProject: (projectId: string) => void;
@@ -124,6 +129,8 @@ const getDefaultProject = (): Project => ({
     },
   },
   buildings: [],
+  amenities: [],
+  importSummary: null,
   analysis: {
     date: new Date(),
     timeRange: { start: 6, end: 20 },
@@ -405,32 +412,114 @@ export const useProjectStore = create<ProjectState>()(
       };
     }),
 
-  importSelectedBuildings: () => {
-    const state = get();
-    if (!state.detectionResult) return;
+  toggleDetectedAmenity: (amenityId) =>
+    set((state) => {
+      if (!state.detectionResult) return state;
+      return {
+        detectionResult: {
+          ...state.detectionResult,
+          amenities: state.detectionResult.amenities.map((a) =>
+            a.id === amenityId ? { ...a, selected: !a.selected } : a
+          ),
+        },
+      };
+    }),
 
+  selectAllDetectedAmenities: (selected) =>
+    set((state) => {
+      if (!state.detectionResult) return state;
+      return {
+        detectionResult: {
+          ...state.detectionResult,
+          amenities: state.detectionResult.amenities.map((a) => ({
+            ...a,
+            selected,
+          })),
+        },
+      };
+    }),
+
+  importSelectedElements: () => {
+    const state = get();
+    const summary: ImportSummary = {
+      buildingsImported: 0,
+      amenitiesImported: 0,
+      compassApplied: false,
+      scaleApplied: false,
+      importedAt: new Date(),
+    };
+
+    if (!state.detectionResult) return summary;
+
+    // Import selected buildings
     const selectedBuildings = state.detectionResult.buildings.filter(
       (b) => b.selected
     );
-
-    // Add each selected building to the project
-    const existingCount = state.project.buildings.length;
+    const existingBuildingCount = state.project.buildings.length;
     const newBuildings: Building[] = selectedBuildings.map((detected, index) => ({
       id: uuidv4(),
-      name: detected.suggestedName || `Building ${existingCount + index + 1}`,
+      name: detected.suggestedName || `Building ${existingBuildingCount + index + 1}`,
       footprint: detected.footprint,
-      floors: 4, // Default
-      floorHeight: 3, // Default
+      floors: 4,
+      floorHeight: 3,
       baseElevation: 0,
-      totalHeight: 12, // Default
+      totalHeight: 12,
       area: detected.area,
-      color: buildingColors[(existingCount + index) % buildingColors.length],
+      color: buildingColors[(existingBuildingCount + index) % buildingColors.length],
     }));
+    summary.buildingsImported = newBuildings.length;
+
+    // Import selected amenities
+    const selectedAmenities = state.detectionResult.amenities.filter(
+      (a) => a.selected
+    );
+    const amenityLabels: Record<string, string> = {
+      swimming_pool: 'Swimming Pool',
+      tennis_court: 'Tennis Court',
+      basketball_court: 'Basketball Court',
+      playground: 'Playground',
+      clubhouse: 'Clubhouse',
+      parking: 'Parking',
+      garden: 'Garden',
+      water_body: 'Water Body',
+      jogging_track: 'Jogging Track',
+      unknown: 'Unknown Amenity',
+    };
+    const newAmenities: Amenity[] = selectedAmenities.map((detected, index) => ({
+      id: uuidv4(),
+      type: detected.type,
+      name: detected.label || amenityLabels[detected.type] || `Amenity ${index + 1}`,
+      position: detected.position,
+      boundingBox: detected.boundingBox,
+      confidence: detected.confidence,
+    }));
+    summary.amenitiesImported = newAmenities.length;
+
+    // Apply compass if detected with good confidence
+    let newNorthAngle = state.project.site.northAngle;
+    if (state.detectionResult.compass && state.detectionResult.compass.confidence > 0.5) {
+      newNorthAngle = state.detectionResult.compass.northAngle;
+      summary.compassApplied = true;
+    }
+
+    // Apply scale if detected with good confidence
+    let newScale = state.project.site.scale;
+    if (state.detectionResult.scale && state.detectionResult.scale.suggestedMeters && state.detectionResult.scale.confidence > 0.5) {
+      newScale = state.detectionResult.scale.suggestedMeters / state.detectionResult.scale.pixelLength;
+      summary.scaleApplied = true;
+    }
 
     set((state) => ({
       project: {
         ...state.project,
         buildings: [...state.project.buildings, ...newBuildings],
+        amenities: [...state.project.amenities, ...newAmenities],
+        importSummary: summary,
+        site: {
+          ...state.project.site,
+          northAngle: newNorthAngle,
+          scale: newScale,
+        },
       },
       hasSavedProgress: true,
       lastSavedAt: new Date(),
@@ -442,9 +531,20 @@ export const useProjectStore = create<ProjectState>()(
               ...b,
               selected: false,
             })),
+            amenities: state.detectionResult.amenities.map((a) => ({
+              ...a,
+              selected: false,
+            })),
           }
         : null,
     }));
+
+    return summary;
+  },
+
+  // Legacy function - calls importSelectedElements
+  importSelectedBuildings: () => {
+    get().importSelectedElements();
   },
 
   // Sample project loading
@@ -469,6 +569,8 @@ export const useProjectStore = create<ProjectState>()(
             ...b,
             id: uuidv4(), // Generate new IDs
           })),
+          amenities: [], // Sample projects don't have amenities
+          importSummary: null,
           analysis: {
             date: new Date(),
             timeRange: { start: 6, end: 20 },

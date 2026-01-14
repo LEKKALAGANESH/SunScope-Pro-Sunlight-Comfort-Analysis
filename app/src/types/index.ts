@@ -56,12 +56,33 @@ export interface AnalysisSettings {
   selectedFloor?: number;
 }
 
+// Imported amenity (from detection)
+export interface Amenity {
+  id: string;
+  type: AmenityType;
+  name: string;
+  position: Point2D;
+  boundingBox: { x: number; y: number; width: number; height: number };
+  confidence: number;
+}
+
+// Import summary for tracking what was imported from detection
+export interface ImportSummary {
+  buildingsImported: number;
+  amenitiesImported: number;
+  compassApplied: boolean;
+  scaleApplied: boolean;
+  importedAt: Date;
+}
+
 export interface Project {
   id: string;
   createdAt: Date;
   image: ProjectImage | null;
   site: SiteConfig;
   buildings: Building[];
+  amenities: Amenity[];
+  importSummary: ImportSummary | null;
   analysis: AnalysisSettings;
 }
 
