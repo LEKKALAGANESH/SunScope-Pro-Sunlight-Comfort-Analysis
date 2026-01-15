@@ -52,7 +52,7 @@ export function createBuildingMesh(
     const lowShape = new THREE.Shape();
     points.forEach((point, index) => {
       const x = point.x - centerX;
-      const z = point.y - centerZ;
+      const z = point.y - centerZ; // rotateX(-PI/2) will flip Y to -Z, so no manual negation needed
       if (index === 0) lowShape.moveTo(x, z);
       else lowShape.lineTo(x, z);
     });
@@ -123,7 +123,7 @@ export function createBuildingMesh(
       const floorShape = new THREE.Shape();
       points.forEach((point, index) => {
         const x = point.x - centerX;
-        const z = point.y - centerZ;
+        const z = point.y - centerZ; // rotateX(-PI/2) will flip Y to -Z
         if (index === 0) floorShape.moveTo(x, z);
         else floorShape.lineTo(x, z);
       });
@@ -166,7 +166,7 @@ export function createBuildingMesh(
     const roofShape = new THREE.Shape();
     points.forEach((point, index) => {
       const x = point.x - centerX;
-      const z = point.y - centerZ;
+      const z = point.y - centerZ; // rotateX(-PI/2) will flip Y to -Z
       if (index === 0) roofShape.moveTo(x, z);
       else roofShape.lineTo(x, z);
     });
@@ -193,7 +193,7 @@ export function createBuildingMesh(
       const floorShape = new THREE.Shape();
       points.forEach((point, index) => {
         const x = point.x - centerX;
-        const z = point.y - centerZ;
+        const z = point.y - centerZ; // rotateX(-PI/2) will flip Y to -Z
         if (index === 0) floorShape.moveTo(x, z);
         else floorShape.lineTo(x, z);
       });
@@ -220,9 +220,9 @@ export function createBuildingMesh(
       floorMesh.receiveShadow = true;
       highGroup.add(floorMesh);
 
-      // Add floor divider line
+      // Add floor divider line (Z negated to match post-rotation shape coordinates)
       const outlinePoints = points.map(
-        (p) => new THREE.Vector3(p.x - centerX, floorBottom + floorHeight, p.y - centerZ)
+        (p) => new THREE.Vector3(p.x - centerX, floorBottom + floorHeight, -(p.y - centerZ))
       );
       outlinePoints.push(outlinePoints[0]);
       const outlineGeo = new THREE.BufferGeometry().setFromPoints(outlinePoints);
@@ -281,7 +281,7 @@ export function createBuildingMesh(
   lod.addLevel(medGroup, 1000);    // 1000-3000: Polygon shape without floor detail
   lod.addLevel(lowGroup, 3000);    // 3000+: Simple box (only for very far distances)
 
-  lod.position.set(centerX, 0, centerZ);
+  lod.position.set(centerX, 0, -centerZ); // Negate Z to match flipped coordinates
   lod.userData = { buildingId: building.id };
 
   return lod;

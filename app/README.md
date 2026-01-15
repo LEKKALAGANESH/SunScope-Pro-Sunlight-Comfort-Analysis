@@ -1,73 +1,92 @@
-# React + TypeScript + Vite
+# SunScope Pro - Application
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is the main application directory for SunScope Pro.
 
-Currently, two official plugins are available:
+## Quick Start
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+```bash
+# Install dependencies
+npm install
 
-## React Compiler
+# Start development server
+npm run dev
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Build for production
+npm run build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Available Scripts
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start Vite dev server with HMR at `localhost:5173` |
+| `npm run build` | Type-check with TypeScript, then build with Vite |
+| `npm run lint` | Run ESLint for code quality |
+| `npm run preview` | Preview production build locally |
+| `npm run test` | Run Vitest in watch mode |
+| `npm run test:run` | Single test run |
+| `npm run test:coverage` | Generate coverage report |
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Directory Structure
+
 ```
+src/
+├── components/          # React UI components by feature
+│   ├── common/          # Toast, ErrorBoundary, Modals
+│   ├── editor/          # Canvas-based building editor
+│   ├── layout/          # Header, StepIndicator
+│   ├── results/         # Analysis results display
+│   ├── setup/           # Site configuration
+│   ├── upload/          # Image upload, detection preview
+│   └── viewer/          # Three.js 3D scene
+├── modules/             # Core business logic (no React)
+│   ├── analysis/        # AnalysisEngine, ShadowCalculator
+│   ├── export/          # PDF, CSV, JSON, PNG, GIF exports
+│   └── image/           # Image analysis/detection
+├── store/               # Zustand state (projectStore.ts)
+├── types/               # TypeScript definitions
+├── hooks/               # Custom React hooks
+├── utils/               # Utility functions
+└── workers/             # Web Workers for heavy tasks
+```
+
+## Tech Stack
+
+- **React 19** + TypeScript
+- **Three.js** for 3D visualization
+- **SunCalc** for sun position calculations
+- **Zustand** for state management
+- **Tailwind CSS** for styling
+- **Vite** for build tooling
+- **Vitest** for testing
+
+## Testing
+
+```bash
+# Run tests in watch mode
+npm run test
+
+# Run tests once
+npm run test:run
+
+# Generate coverage report
+npm run test:coverage
+```
+
+## Building
+
+```bash
+# Production build
+npm run build
+
+# Output will be in dist/
+```
+
+The build process:
+1. Type-checks with TypeScript
+2. Bundles with Vite
+3. Outputs to `dist/` directory
+
+## Environment
+
+No environment variables required - all processing is client-side.

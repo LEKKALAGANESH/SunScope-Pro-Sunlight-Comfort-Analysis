@@ -875,6 +875,41 @@ export function EditorCanvas({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
         <h3 className="font-medium text-gray-900">Editor Canvas</h3>
         <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-sm">
+          {/* Zoom controls */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => {
+                const canvas = canvasRef.current;
+                if (canvas) {
+                  const rect = canvas.getBoundingClientRect();
+                  const centerX = rect.left + rect.width / 2;
+                  const centerY = rect.top + rect.height / 2;
+                  const newZoom = Math.max(camera.zoom / 1.2, MIN_ZOOM);
+                  zoomAtPoint(newZoom, centerX, centerY);
+                }
+              }}
+              className="w-7 h-7 flex items-center justify-center rounded border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 font-medium"
+              title="Zoom out"
+            >
+              -
+            </button>
+            <button
+              onClick={() => {
+                const canvas = canvasRef.current;
+                if (canvas) {
+                  const rect = canvas.getBoundingClientRect();
+                  const centerX = rect.left + rect.width / 2;
+                  const centerY = rect.top + rect.height / 2;
+                  const newZoom = Math.min(camera.zoom * 1.2, MAX_ZOOM);
+                  zoomAtPoint(newZoom, centerX, centerY);
+                }
+              }}
+              className="w-7 h-7 flex items-center justify-center rounded border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 font-medium"
+              title="Zoom in"
+            >
+              +
+            </button>
+          </div>
           {detectionResult && (
             <label className="flex items-center gap-2 text-gray-600 cursor-pointer">
               <input

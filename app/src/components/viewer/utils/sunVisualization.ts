@@ -51,10 +51,11 @@ export function updateSunPath(
       const azimuth = pos.azimuth;
 
       // Convert spherical to Cartesian
-      // In Three.js: Y is up, Z is forward (south in SunCalc convention)
+      // SunCalc azimuth: 0=South, π/2=West, π=North, -π/2=East
+      // Three.js: +X=East, +Z=South, +Y=Up
       const x = center.x - Math.sin(azimuth) * Math.cos(altitude) * pathRadius;
       const y = Math.sin(altitude) * pathRadius;
-      const z = center.y - Math.cos(azimuth) * Math.cos(altitude) * pathRadius;
+      const z = center.y + Math.cos(azimuth) * Math.cos(altitude) * pathRadius;
 
       sunPositions.push(new THREE.Vector3(x, y, z));
     }
@@ -86,7 +87,7 @@ export function updateSunPath(
       if (pos.altitude > 0) {
         const x = center.x - Math.sin(pos.azimuth) * Math.cos(pos.altitude) * pathRadius;
         const y = Math.sin(pos.altitude) * pathRadius;
-        const z = center.y - Math.cos(pos.azimuth) * Math.cos(pos.altitude) * pathRadius;
+        const z = center.y + Math.cos(pos.azimuth) * Math.cos(pos.altitude) * pathRadius;
 
         // Hour marker sphere
         const markerGeo = new THREE.SphereGeometry(1.5, 8, 8);
@@ -180,9 +181,11 @@ export function calculateSunPosition3D(
   const azimuth = sunPos.azimuth;
 
   // Convert to 3D coordinates
+  // SunCalc azimuth: 0=South, π/2=West, π=North, -π/2=East
+  // Three.js: +X=East, +Z=South, +Y=Up
   const x = center.x - Math.sin(azimuth) * Math.cos(altitude) * distance;
   const y = Math.sin(altitude) * distance;
-  const z = center.y - Math.cos(azimuth) * Math.cos(altitude) * distance;
+  const z = center.y + Math.cos(azimuth) * Math.cos(altitude) * distance;
 
   return {
     position: new THREE.Vector3(x, y, z),

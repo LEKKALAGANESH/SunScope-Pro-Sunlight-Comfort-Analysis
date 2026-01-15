@@ -39,7 +39,10 @@ interface Scene3DProps {
     sunLight: THREE.DirectionalLight
   ) => void;
   onSunPositionChange?: (info: SunPositionInfo) => void;
-  onBuildingHover?: (building: Building | null, floorInfo?: FloorHoverInfo | null) => void;
+  onBuildingHover?: (
+    building: Building | null,
+    floorInfo?: FloorHoverInfo | null
+  ) => void;
   onMeasurementClick?: (point: Vector3) => void;
   showNorthArrow?: boolean;
   showSunRay?: boolean;
@@ -91,7 +94,8 @@ function calculateSceneBounds(
   const size = Math.max(sizeX, sizeY, 100) * 1.2;
 
   return {
-    center: { x: centerX, y: centerY },
+    // Negate Y to match 3D coordinate system (canvas Y down → 3D Z flipped)
+    center: { x: centerX, y: -centerY },
     size,
     maxHeight: Math.max(maxHeight, 20),
   };
@@ -511,7 +515,7 @@ export function Scene3D({
       site.location.latitude,
       site.location.longitude,
       project.analysis.date,
-      currentTime  // Pass current time to show sun position on orbit
+      currentTime // Pass current time to show sun position on orbit
     );
   }, [
     project.analysis.date,
@@ -654,12 +658,12 @@ export function Scene3D({
     sunLightRef.current.intensity = 0.6 + Math.sin(altitude) * 0.6;
 
     // Calculate sun position relative to scene center
-    // SunCalc: azimuth 0 = south, positive = west
-    // Three.js: X = east-west, Z = north-south (positive Z = south), Y = up
-    // The sun should be positioned where it actually is - shadows will naturally fall opposite
+    // SunCalc azimuth: 0=South, π/2=West, π=North, -π/2=East
+    // Three.js: +X=East, +Z=South, +Y=Up
+    // Sun position matches the orbit path formula
     const x = center.x - Math.sin(azimuth) * Math.cos(altitude) * distance;
     const y = Math.sin(altitude) * distance;
-    const z = center.y + Math.cos(azimuth) * Math.cos(altitude) * distance; // + for south (matches sun path orbit)
+    const z = center.y + Math.cos(azimuth) * Math.cos(altitude) * distance;
 
     sunLightRef.current.position.set(x, y, z);
     sunLightRef.current.target.position.set(center.x, 0, center.y);
@@ -1346,20 +1350,37 @@ function updateSunPath(
 
   // Define seasonal dates with their characteristics
   const seasons = [
-    { name: "Summer solstice", date: new Date(currentYear, 5, 21), color: 0xff6600, lineWidth: 2 },
-    { name: "Spring and Autumn\nsolstice", date: new Date(currentYear, 2, 21), color: 0x66cc66, lineWidth: 2 },
-    { name: "Winter solstice", date: new Date(currentYear, 11, 21), color: 0x3399ff, lineWidth: 2 },
+    {
+      name: "Summer solstice",
+      date: new Date(currentYear, 5, 21),
+      color: 0xff6600,
+      lineWidth: 2,
+    },
+    {
+      name: "Spring and Autumn\nsolstice",
+      date: new Date(currentYear, 2, 21),
+      color: 0x66cc66,
+      lineWidth: 2,
+    },
+    {
+      name: "Winter solstice",
+      date: new Date(currentYear, 11, 21),
+      color: 0x3399ff,
+      lineWidth: 2,
+    },
   ];
 
   // Create horizon ellipse (ground plane)
   const horizonPoints: THREE.Vector3[] = [];
   for (let i = 0; i <= 64; i++) {
     const angle = (i / 64) * Math.PI * 2;
-    horizonPoints.push(new THREE.Vector3(
-      center.x + Math.cos(angle) * arcRadius,
-      0.5,
-      center.y + Math.sin(angle) * arcRadius * 0.6 // Elliptical for perspective effect
-    ));
+    horizonPoints.push(
+      new THREE.Vector3(
+        center.x + Math.cos(angle) * arcRadius,
+        0.5,
+        center.y + Math.sin(angle) * arcRadius * 0.5 // Elliptical, matching sun path bend
+      )
+    );
   }
   const horizonGeo = new THREE.BufferGeometry().setFromPoints(horizonPoints);
   const horizonMat = new THREE.LineBasicMaterial({
@@ -1372,16 +1393,20 @@ function updateSunPath(
 
   // Add "Horizontal surface" label
   const surfaceLabel = createSeasonLabel("Horizontal surface", 0x888888);
-  surfaceLabel.position.set(center.x + arcRadius * 0.5, 2, center.y + arcRadius * 0.3);
+  surfaceLabel.position.set(
+    center.x + arcRadius * 0.5,
+    2,
+    center.y + arcRadius * 0.25
+  );
   surfaceLabel.scale.set(20, 8, 1);
   group.add(surfaceLabel);
 
   // Add cardinal direction markers on horizon (matching reference: N=back, S=front, E=right, W=left)
   const directions = [
-    { label: "N", x: center.x, z: center.y - arcRadius * 0.8, color: 0x888888 },  // Back (negative Z)
-    { label: "S", x: center.x, z: center.y + arcRadius * 0.5, color: 0x888888 },  // Front (positive Z)
-    { label: "E", x: center.x + arcRadius * 1.1, z: center.y, color: 0x888888 },  // Right (positive X)
-    { label: "W", x: center.x - arcRadius * 1.1, z: center.y, color: 0x888888 },  // Left (negative X)
+    { label: "N", x: center.x, z: center.y - arcRadius * 0.55, color: 0x888888 }, // Back (negative Z)
+    { label: "S", x: center.x, z: center.y + arcRadius * 0.55, color: 0x888888 }, // Front (positive Z)
+    { label: "E", x: center.x + arcRadius * 1.1, z: center.y, color: 0x888888 }, // Right (positive X)
+    { label: "W", x: center.x - arcRadius * 1.1, z: center.y, color: 0x888888 }, // Left (negative X)
   ];
 
   directions.forEach(({ label, x, z, color }) => {
@@ -1392,7 +1417,14 @@ function updateSunPath(
 
   // Create seasonal arcs (East to West) - only show paths, no sun icons
   seasons.forEach((season) => {
-    const pathData = createSeasonalArc(center, arcRadius, latitude, longitude, season.date, season.color);
+    const pathData = createSeasonalArc(
+      center,
+      arcRadius,
+      latitude,
+      longitude,
+      season.date,
+      season.color
+    );
     if (pathData) {
       group.add(pathData.line);
 
@@ -1406,7 +1438,14 @@ function updateSunPath(
   });
 
   // Add current day path (dashed line)
-  const currentPath = createSeasonalArc(center, arcRadius, latitude, longitude, date, 0xffcc00);
+  const currentPath = createSeasonalArc(
+    center,
+    arcRadius,
+    latitude,
+    longitude,
+    date,
+    0xffcc00
+  );
   if (currentPath) {
     // Make current day path dashed to distinguish from seasonal paths
     const dashedMat = new THREE.LineDashedMaterial({
@@ -1425,9 +1464,19 @@ function updateSunPath(
   const currentSunPos = SunCalc.getPosition(currentTime, latitude, longitude);
   if (currentSunPos.altitude > 0) {
     // Calculate sun position on the orbit path (same formula as createSeasonalArc)
-    const sunX = center.x - Math.sin(currentSunPos.azimuth) * Math.cos(currentSunPos.altitude) * arcRadius;
+    // SunCalc azimuth: 0=South, π/2=West, π=North, -π/2=East
+    const sunX =
+      center.x -
+      Math.sin(currentSunPos.azimuth) *
+        Math.cos(currentSunPos.altitude) *
+        arcRadius;
     const sunY = Math.sin(currentSunPos.altitude) * arcRadius;
-    const sunZ = center.y + Math.cos(currentSunPos.azimuth) * Math.cos(currentSunPos.altitude) * arcRadius * 0.6;
+    const sunZ =
+      center.y +
+      Math.cos(currentSunPos.azimuth) *
+        Math.cos(currentSunPos.altitude) *
+        arcRadius *
+        0.5;
 
     // Create sun sphere (smaller size)
     const sunSize = arcRadius * 0.05;
@@ -1457,9 +1506,17 @@ function updateSunPath(
       const angle = (i / rayCount) * Math.PI * 2;
       const rayGeo = new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(Math.cos(angle) * rayLength, Math.sin(angle) * rayLength, 0)
+        new THREE.Vector3(
+          Math.cos(angle) * rayLength,
+          Math.sin(angle) * rayLength,
+          0
+        ),
       ]);
-      const rayMat = new THREE.LineBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.5 });
+      const rayMat = new THREE.LineBasicMaterial({
+        color: 0xffaa00,
+        transparent: true,
+        opacity: 0.5,
+      });
       const ray = new THREE.Line(rayGeo, rayMat);
       ray.position.set(sunX, sunY, sunZ);
       ray.lookAt(center.x, 0, center.y);
@@ -1467,7 +1524,11 @@ function updateSunPath(
     }
 
     // Add time label next to sun
-    const timeStr = currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    const timeStr = currentTime.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
     const timeLabel = createSeasonLabel(timeStr, 0xffcc00);
     timeLabel.position.set(sunX + 8, sunY + 5, sunZ);
     timeLabel.scale.set(10, 3, 1);
@@ -1490,12 +1551,21 @@ function createSeasonalArc(
   longitude: number,
   date: Date,
   color: number
-): { line: THREE.Line; peakPoint: THREE.Vector3 | null; labelPoint: THREE.Vector3 | null } | null {
+): {
+  line: THREE.Line;
+  peakPoint: THREE.Vector3 | null;
+  labelPoint: THREE.Vector3 | null;
+} | null {
   const sunTimes = SunCalc.getTimes(date, latitude, longitude);
   const sunrise = sunTimes.sunrise;
   const sunset = sunTimes.sunset;
 
-  if (!sunrise || !sunset || isNaN(sunrise.getTime()) || isNaN(sunset.getTime())) {
+  if (
+    !sunrise ||
+    !sunset ||
+    isNaN(sunrise.getTime()) ||
+    isNaN(sunset.getTime())
+  ) {
     return null;
   }
 
@@ -1507,15 +1577,25 @@ function createSeasonalArc(
 
   for (let i = 0; i <= numSamples; i++) {
     const t = i / numSamples;
-    const sampleTime = new Date(sunrise.getTime() + t * (sunset.getTime() - sunrise.getTime()));
+    const sampleTime = new Date(
+      sunrise.getTime() + t * (sunset.getTime() - sunrise.getTime())
+    );
     const sunPos = SunCalc.getPosition(sampleTime, latitude, longitude);
 
     if (sunPos.altitude <= 0) continue;
 
     // Position arc around center - E to W trajectory, tilted towards South
-    const x = center.x - Math.sin(sunPos.azimuth) * Math.cos(sunPos.altitude) * arcRadius;
+    // SunCalc azimuth: 0=South, π/2=West, π=North, -π/2=East (measured from South, clockwise)
+    // We want: East=+X, West=-X, South=+Z, North=-Z
+    // At East (az=-π/2): -sin(-π/2)=1 → +X ✓
+    // At South (az=0): cos(0)=1 → +Z ✓
+    const x =
+      center.x -
+      Math.sin(sunPos.azimuth) * Math.cos(sunPos.altitude) * arcRadius;
     const y = Math.sin(sunPos.altitude) * arcRadius;
-    const z = center.y + Math.cos(sunPos.azimuth) * Math.cos(sunPos.altitude) * arcRadius * 0.6;
+    const z =
+      center.y +
+      Math.cos(sunPos.azimuth) * Math.cos(sunPos.altitude) * arcRadius * 0.5;
 
     const point = new THREE.Vector3(x, y, z);
     pathPoints.push(point);
@@ -1555,14 +1635,17 @@ function createDirectionLabel(text: string, color: number): THREE.Sprite {
   canvas.height = 32;
   const ctx = canvas.getContext("2d")!;
 
-  ctx.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
+  ctx.fillStyle = `#${color.toString(16).padStart(6, "0")}`;
   ctx.font = "bold 24px Arial";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(text, 16, 16);
 
   const texture = new THREE.CanvasTexture(canvas);
-  const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+  const material = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+  });
   const sprite = new THREE.Sprite(material);
   sprite.scale.set(8, 8, 1);
   return sprite;
@@ -1573,7 +1656,7 @@ function createDirectionLabel(text: string, color: number): THREE.Sprite {
  */
 function createSeasonLabel(text: string, color: number): THREE.Sprite {
   const canvas = document.createElement("canvas");
-  const lines = text.split('\n');
+  const lines = text.split("\n");
   canvas.width = 120;
   canvas.height = lines.length > 1 ? 40 : 24;
   const ctx = canvas.getContext("2d")!;
@@ -1583,7 +1666,7 @@ function createSeasonLabel(text: string, color: number): THREE.Sprite {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // Border
-  ctx.strokeStyle = `#${color.toString(16).padStart(6, '0')}`;
+  ctx.strokeStyle = `#${color.toString(16).padStart(6, "0")}`;
   ctx.lineWidth = 2;
   ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
 
@@ -1601,7 +1684,10 @@ function createSeasonLabel(text: string, color: number): THREE.Sprite {
   }
 
   const texture = new THREE.CanvasTexture(canvas);
-  const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+  const material = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+  });
   const sprite = new THREE.Sprite(material);
   sprite.scale.set(lines.length > 1 ? 18 : 15, lines.length > 1 ? 6 : 4, 1);
   return sprite;
@@ -1627,10 +1713,30 @@ function updateCardinalDirections(
   }
 
   const directions = [
-    { label: "N", x: center.x, z: center.y - sceneSize * 0.55, color: "#ef4444" }, // North (red) - negative Z
-    { label: "S", x: center.x, z: center.y + sceneSize * 0.55, color: "#9ca3af" }, // South - positive Z
-    { label: "E", x: center.x + sceneSize * 0.55, z: center.y, color: "#9ca3af" }, // East - positive X
-    { label: "W", x: center.x - sceneSize * 0.55, z: center.y, color: "#9ca3af" }, // West - negative X
+    {
+      label: "N",
+      x: center.x,
+      z: center.y - sceneSize * 0.55,
+      color: "#ef4444",
+    }, // North (red) - negative Z
+    {
+      label: "S",
+      x: center.x,
+      z: center.y + sceneSize * 0.55,
+      color: "#9ca3af",
+    }, // South - positive Z
+    {
+      label: "E",
+      x: center.x + sceneSize * 0.55,
+      z: center.y,
+      color: "#9ca3af",
+    }, // East - positive X
+    {
+      label: "W",
+      x: center.x - sceneSize * 0.55,
+      z: center.y,
+      color: "#9ca3af",
+    }, // West - negative X
   ];
 
   const labelSize = Math.max(sceneSize * 0.08, 20);
