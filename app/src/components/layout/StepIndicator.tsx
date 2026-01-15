@@ -51,7 +51,7 @@ export function StepIndicator() {
   return (
     <div className="bg-white border-b border-gray-200 px-4 py-2">
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-center gap-1 flex-wrap sm:flex-nowrap sm:justify-between">
+        <div className="flex items-center justify-center gap-1 flex-wrap lg:flex-nowrap lg:justify-between">
           {steps.map((step, index) => {
             const status = getStepStatus(step.key);
             const canClick = canNavigateTo(step.key);
@@ -63,37 +63,63 @@ export function StepIndicator() {
                   disabled={!canClick}
                   className={`
                     flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors
-                    ${status === 'current' ? 'bg-amber-100 text-amber-700' : ''}
-                    ${status === 'completed' ? 'text-green-600 hover:bg-green-50' : ''}
-                    ${status === 'upcoming' ? 'text-gray-400' : ''}
-                    ${canClick && status !== 'current' ? 'cursor-pointer hover:bg-gray-100' : ''}
-                    ${!canClick ? 'cursor-not-allowed' : ''}
+                    ${status === "current" ? "bg-amber-100 text-amber-700" : ""}
+                    ${
+                      status === "completed"
+                        ? "text-green-600 hover:bg-green-50"
+                        : ""
+                    }
+                    ${status === "upcoming" ? "text-gray-400" : ""}
+                    ${
+                      canClick && status !== "current"
+                        ? "cursor-pointer hover:bg-gray-100"
+                        : ""
+                    }
+                    ${!canClick ? "cursor-not-allowed" : ""}
                   `}
                 >
                   <span
                     className={`
                       w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium
-                      ${status === 'current' ? 'bg-amber-500 text-white' : ''}
-                      ${status === 'completed' ? 'bg-green-500 text-white' : ''}
-                      ${status === 'upcoming' ? 'bg-gray-200 text-gray-500' : ''}
+                      ${status === "current" ? "bg-amber-500 text-white" : ""}
+                      ${status === "completed" ? "bg-green-500 text-white" : ""}
+                      ${
+                        status === "upcoming" ? "bg-gray-200 text-gray-500" : ""
+                      }
                     `}
                   >
-                    {status === 'completed' ? (
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    {status === "completed" ? (
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
                       </svg>
                     ) : (
                       step.shortLabel
                     )}
                   </span>
-                  <span className="hidden sm:inline text-sm font-medium">{step.label}</span>
+                  <span className="hidden lg:inline text-sm font-medium">
+                    {step.label}
+                  </span>
                 </button>
 
                 {index < steps.length - 1 && (
                   <div
                     className={`
-                      hidden sm:block w-8 h-0.5 mx-1
-                      ${stepOrder.indexOf(step.key) < currentIndex ? 'bg-green-500' : 'bg-gray-200'}
+                      hidden md:block md:w-8 md:h-0.5 md:mx-1 lg:block lg:w-8 lg:h-0.5 lg:mx-1
+                      ${
+                        stepOrder.indexOf(step.key) < currentIndex
+                          ? "bg-green-500"
+                          : "bg-gray-200"
+                      }
                     `}
                   />
                 )}
