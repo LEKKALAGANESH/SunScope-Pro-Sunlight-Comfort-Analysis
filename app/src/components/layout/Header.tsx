@@ -5,6 +5,7 @@ import { FocusTrap } from '../common/FocusTrap';
 export function Header() {
   const [showHelp, setShowHelp] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const { resetProject } = useProjectStore();
 
   return (
@@ -33,7 +34,8 @@ export function Header() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Desktop menu */}
+        <div className="hidden sm:flex items-center gap-2">
           <button
             onClick={() => setShowHelp(true)}
             className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
@@ -52,6 +54,57 @@ export function Header() {
           >
             New Project
           </button>
+        </div>
+
+        {/* Mobile hamburger menu */}
+        <div className="sm:hidden relative">
+          <button
+            onClick={() => setShowMobileMenu(!showMobileMenu)}
+            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            aria-label="Open menu"
+            aria-expanded={showMobileMenu}
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              {showMobileMenu ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
+          </button>
+
+          {/* Mobile dropdown */}
+          {showMobileMenu && (
+            <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50">
+              <button
+                onClick={() => {
+                  setShowHelp(true);
+                  setShowMobileMenu(false);
+                }}
+                className="w-full px-4 py-2 text-left text-sm text-gray-600 hover:bg-gray-100"
+              >
+                Help
+              </button>
+              <button
+                onClick={() => {
+                  setShowAbout(true);
+                  setShowMobileMenu(false);
+                }}
+                className="w-full px-4 py-2 text-left text-sm text-gray-600 hover:bg-gray-100"
+              >
+                About
+              </button>
+              <button
+                onClick={() => {
+                  resetProject();
+                  setShowMobileMenu(false);
+                }}
+                className="w-full px-4 py-2 text-left text-sm text-gray-600 hover:bg-gray-100"
+              >
+                New Project
+              </button>
+            </div>
+          )}
         </div>
       </header>
 

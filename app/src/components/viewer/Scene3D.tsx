@@ -267,13 +267,6 @@ export function Scene3D({
     scene.add(sunLight.target);
     sunLightRef.current = sunLight;
 
-    // Sun helper (visual indicator) - larger and brighter
-    const sunSphere = new THREE.Mesh(
-      new THREE.SphereGeometry(15),
-      new THREE.MeshBasicMaterial({ color: 0xffdd00 })
-    );
-    sunLight.add(sunSphere);
-
     // North Arrow - always visible compass indicator
     if (showNorthArrow) {
       const northArrowGroup = createNorthArrow();

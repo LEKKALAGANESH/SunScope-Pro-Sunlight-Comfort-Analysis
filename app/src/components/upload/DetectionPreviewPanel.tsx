@@ -645,9 +645,9 @@ export function DetectionPreviewPanel() {
       )}
 
       {/* Actions */}
-      <div className="mt-6 flex justify-between items-center">
+      <div className="mt-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <button
-          className="btn-outline"
+          className="btn-outline w-full sm:w-auto order-3 sm:order-1"
           onClick={() => {
             analysisStartedRef.current = false;
             runAnalysis();
@@ -656,15 +656,9 @@ export function DetectionPreviewPanel() {
         >
           {isAnalyzing ? 'Analyzing...' : 'Re-analyze Image'}
         </button>
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3 order-1 sm:order-2">
           <button
-            className="btn-outline"
-            onClick={() => setCurrentStep('setup')}
-          >
-            Skip to Setup
-          </button>
-          <button
-            className="btn-primary flex items-center gap-2"
+            className="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto order-1 sm:order-2"
             onClick={handleImportAndContinue}
           >
             {totalSelectedCount > 0 ? (
@@ -680,6 +674,12 @@ export function DetectionPreviewPanel() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
             </svg>
+          </button>
+          <button
+            className="btn-outline w-full sm:w-auto order-2 sm:order-1"
+            onClick={() => setCurrentStep('setup')}
+          >
+            Skip to Setup
           </button>
         </div>
       </div>

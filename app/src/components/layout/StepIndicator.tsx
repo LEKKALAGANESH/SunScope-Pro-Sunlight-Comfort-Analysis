@@ -51,7 +51,7 @@ export function StepIndicator() {
   return (
     <div className="bg-white border-b border-gray-200 px-4 py-2">
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-center gap-1 flex-wrap sm:flex-nowrap sm:justify-between">
           {steps.map((step, index) => {
             const status = getStepStatus(step.key);
             const canClick = canNavigateTo(step.key);
@@ -92,7 +92,7 @@ export function StepIndicator() {
                 {index < steps.length - 1 && (
                   <div
                     className={`
-                      w-8 h-0.5 mx-1
+                      hidden sm:block w-8 h-0.5 mx-1
                       ${stepOrder.indexOf(step.key) < currentIndex ? 'bg-green-500' : 'bg-gray-200'}
                     `}
                   />

@@ -598,11 +598,11 @@ export function ResultsPage() {
       </div>
 
       {/* Actions */}
-      <div className="flex justify-between items-center">
-        <button onClick={() => setCurrentStep('viewer')} className="btn-outline">
+      <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3">
+        <button onClick={() => setCurrentStep('viewer')} className="btn-outline w-full sm:w-auto">
           Back to 3D View
         </button>
-        <button onClick={() => setShowExport(true)} className="btn-primary">
+        <button onClick={() => setShowExport(true)} className="btn-primary w-full sm:w-auto">
           Export Results
         </button>
       </div>
@@ -701,15 +701,15 @@ function ExportModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
       <FocusTrap active={true} onEscape={isExporting ? undefined : onClose}>
         <div
-          className="bg-white rounded-xl max-w-md w-full p-6"
+          className="bg-white rounded-xl max-w-md w-full p-6 my-auto max-h-[calc(100vh-2rem)] flex flex-col overflow-hidden"
           role="dialog"
           aria-modal="true"
           aria-labelledby="export-modal-title"
         >
-          <div className="flex justify-between items-start mb-4">
+          <div className="flex justify-between items-start mb-4 flex-shrink-0">
             <h2 id="export-modal-title" className="text-xl font-bold">Export Results</h2>
             <button
               onClick={onClose}
@@ -723,6 +723,7 @@ function ExportModal({
             </button>
           </div>
 
+        <div className="flex-1 overflow-y-auto">
         <p className="text-sm text-gray-600 mb-4">Select export formats:</p>
 
         <div className="space-y-2 mb-6">
@@ -782,8 +783,9 @@ function ExportModal({
             {exportStatus}
           </div>
         )}
+        </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-shrink-0 pt-4">
           <button
             onClick={onClose}
             disabled={isExporting}

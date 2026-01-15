@@ -50,32 +50,40 @@ export function ImportConfirmationModal({
   const totalItems = selectedBuildings.length + selectedAmenities.length + (hasCompass ? 1 : 0) + (hasScale ? 1 : 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
       />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4 overflow-hidden">
+      <div className="relative bg-white rounded-xl shadow-2xl max-w-lg w-full my-auto max-h-[calc(100vh-2rem)] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
-          <h2 className="text-xl font-semibold text-white">
-            Confirm Import
-          </h2>
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex-shrink-0">
+          <h2 className="text-xl font-semibold text-white">Confirm Import</h2>
           <p className="text-blue-100 text-sm mt-1">
             Review what will be imported to your project
           </p>
         </div>
 
         {/* Content */}
-        <div className="px-6 py-4 max-h-96 overflow-y-auto">
+        <div className="px-6 py-4 flex-1 overflow-y-auto">
           {totalItems === 0 ? (
             <div className="text-center py-8">
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                <svg
+                  className="w-8 h-8 text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                  />
                 </svg>
               </div>
               <p className="text-gray-500">No items selected for import.</p>
@@ -90,7 +98,11 @@ export function ImportConfirmationModal({
                 <div>
                   <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                     <span className="w-5 h-5 bg-blue-100 rounded flex items-center justify-center">
-                      <svg className="w-3 h-3 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                      <svg
+                        className="w-3 h-3 text-blue-600"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
                         <path d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm0 2h12v8H4V6z" />
                       </svg>
                     </span>
@@ -98,7 +110,10 @@ export function ImportConfirmationModal({
                   </h3>
                   <div className="bg-gray-50 rounded-lg p-3 space-y-2">
                     {selectedBuildings.map((building) => (
-                      <div key={building.id} className="flex items-center gap-3">
+                      <div
+                        key={building.id}
+                        className="flex items-center gap-3"
+                      >
                         <span
                           className="w-3 h-3 rounded"
                           style={{ backgroundColor: building.color }}
@@ -127,7 +142,9 @@ export function ImportConfirmationModal({
                   <div className="bg-gray-50 rounded-lg p-3 space-y-2">
                     {selectedAmenities.map((amenity) => (
                       <div key={amenity.id} className="flex items-center gap-3">
-                        <span className="text-base">{AMENITY_ICONS[amenity.type]}</span>
+                        <span className="text-base">
+                          {AMENITY_ICONS[amenity.type]}
+                        </span>
                         <span className="text-sm text-gray-700 flex-1">
                           {amenity.label || AMENITY_LABELS[amenity.type]}
                         </span>
@@ -145,8 +162,16 @@ export function ImportConfirmationModal({
                 <div>
                   <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                     <span className="w-5 h-5 bg-amber-100 rounded flex items-center justify-center">
-                      <svg className="w-3 h-3 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+                      <svg
+                        className="w-3 h-3 text-amber-600"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                     </span>
                     Auto-Applied Settings
@@ -175,7 +200,8 @@ export function ImportConfirmationModal({
                       </div>
                     )}
                     <p className="text-xs text-amber-700 mt-2">
-                      These settings will be pre-filled. You can adjust them in the Setup step.
+                      These settings will be pre-filled. You can adjust them in
+                      the Setup step.
                     </p>
                   </div>
                 </div>
@@ -186,7 +212,7 @@ export function ImportConfirmationModal({
 
         {/* Summary Bar */}
         {totalItems > 0 && (
-          <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
+          <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex-shrink-0">
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-500">Total items to import:</span>
               <span className="font-medium text-gray-900">{totalItems}</span>
@@ -195,7 +221,7 @@ export function ImportConfirmationModal({
         )}
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-white border-t border-gray-200 flex gap-3 justify-end">
+        <div className="px-6 py-4 bg-white border-t border-gray-200 flex gap-3 justify-end flex-shrink-0">
           <button
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
@@ -209,15 +235,35 @@ export function ImportConfirmationModal({
             {totalItems > 0 ? (
               <>
                 Import & Continue
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 7l5 5m0 0l-5 5m5-5H6"
+                  />
                 </svg>
               </>
             ) : (
               <>
                 Continue to Setup
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 7l5 5m0 0l-5 5m5-5H6"
+                  />
                 </svg>
               </>
             )}
