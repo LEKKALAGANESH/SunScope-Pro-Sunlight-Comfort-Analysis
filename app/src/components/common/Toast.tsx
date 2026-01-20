@@ -151,7 +151,7 @@ function ToastContainer({ toasts, onDismiss }: { toasts: ToastItem[]; onDismiss:
 
   return (
     <div
-      className="fixed top-4 right-4 z-50 flex flex-col gap-3"
+      className="fixed top-4 right-4 z-[200] flex flex-col gap-3"
       aria-label="Notifications"
     >
       {toasts.map((toast) => (

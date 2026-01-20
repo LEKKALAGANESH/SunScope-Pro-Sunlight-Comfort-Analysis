@@ -540,7 +540,7 @@ export function MassingEditor() {
   if (!image) return null;
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto bg-gradient-editor rounded-2xl p-6">
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         {/* Toolbar - Second on mobile, first on desktop */}
         <div className="lg:col-span-1 space-y-4 order-2 lg:order-1">

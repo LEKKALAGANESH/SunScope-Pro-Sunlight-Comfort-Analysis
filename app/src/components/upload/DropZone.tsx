@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useProjectStore } from '../../store/projectStore';
 import { sampleProjects } from '../../data/sampleProjects';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -211,15 +212,28 @@ export function DropZone() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-2xl mx-auto bg-gradient-upload rounded-2xl p-8">
+      {/* Welcome header with gradient accent */}
+      <div className="text-center mb-8 animate-fade-in">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 mb-4 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
+          <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome to SunScope Pro</h2>
+        <p className="text-gray-600">Analyze sunlight exposure and thermal comfort for your buildings</p>
+      </div>
+
       <div
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         className={`
-          relative border-2 border-dashed rounded-xl p-12 text-center transition-colors
-          ${isDragging ? 'border-amber-500 bg-amber-50' : 'border-gray-300 hover:border-gray-400'}
+          card-upload-hover relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200
+          ${isDragging
+            ? 'border-amber-500 bg-gradient-to-br from-amber-50 to-amber-100 shadow-lg scale-[1.01]'
+            : 'border-amber-300 hover:border-amber-400 hover:shadow-md'}
           ${isProcessing ? 'opacity-50 pointer-events-none' : ''}
         `}
       >
@@ -291,26 +305,27 @@ export function DropZone() {
       </div>
 
       {/* Sample Project Selector Modal */}
-      {showSampleModal && (
+      {showSampleModal && createPortal(
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] animate-fade-in"
           onClick={() => setShowSampleModal(false)}
+          style={{ isolation: 'isolate' }}
         >
           <div
-            className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden"
+            className="bg-gradient-to-br from-white to-amber-50/50 rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden border border-amber-200/50 animate-scale-in"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
             aria-labelledby="sample-modal-title"
           >
-            <div className="p-6 border-b border-gray-200">
+            <div className="p-6 border-b border-amber-200/50 bg-gradient-to-r from-amber-50 to-transparent">
               <div className="flex items-center justify-between">
                 <h2 id="sample-modal-title" className="text-xl font-semibold text-gray-900">
                   Choose a Sample Project
                 </h2>
                 <button
                   onClick={() => setShowSampleModal(false)}
-                  className="text-gray-400 hover:text-gray-600 p-1"
+                  className="text-gray-400 hover:text-amber-600 p-1 rounded-full hover:bg-amber-100 transition-colors"
                   aria-label="Close modal"
                 >
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -329,7 +344,7 @@ export function DropZone() {
                   <button
                     key={project.id}
                     onClick={() => handleLoadSampleProject(project.id)}
-                    className="flex items-start gap-4 p-4 border border-gray-200 rounded-lg hover:border-amber-400 hover:bg-amber-50 transition-colors text-left focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
+                    className="card-upload-hover flex items-start gap-4 p-4 text-left focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 active:scale-[0.99]"
                   >
                     <div className="w-24 h-18 bg-gray-100 rounded-md flex items-center justify-center flex-shrink-0">
                       <svg className="w-10 h-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -360,40 +375,44 @@ export function DropZone() {
               </div>
             </div>
 
-            <div className="p-4 bg-gray-50 border-t border-gray-200">
-              <p className="text-xs text-gray-500 text-center">
+            <div className="p-4 bg-gradient-to-r from-amber-50 to-amber-100/50 border-t border-amber-200/50">
+              <p className="text-xs text-amber-700 text-center">
                 Sample projects include pre-defined buildings, locations, and configurations
               </p>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      <div className="mt-8 pt-6 border-t border-gray-200">
-        <h3 className="text-sm font-medium text-gray-900 mb-3">How it works:</h3>
+      <div className="mt-8 pt-6 border-t border-amber-200/50">
+        <h3 className="text-sm font-medium text-amber-800 mb-4 text-center">How it works</h3>
         <div className="grid grid-cols-3 gap-4">
-          <div className="text-center">
-            <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <span className="text-amber-600 font-bold">1</span>
+          <div className="text-center group">
+            <div className="w-12 h-12 bg-gradient-to-br from-amber-200 to-amber-400 rounded-full flex items-center justify-center mx-auto mb-2 shadow-sm group-hover:shadow-lg group-hover:scale-110 transition-all duration-300">
+              <span className="text-white font-bold">1</span>
             </div>
-            <p className="text-xs text-gray-600">Upload a site plan</p>
+            <p className="text-sm font-medium text-gray-700">Upload</p>
+            <p className="text-xs text-gray-500 mt-0.5">Site plan image</p>
           </div>
-          <div className="text-center">
-            <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <span className="text-amber-600 font-bold">2</span>
+          <div className="text-center group">
+            <div className="w-12 h-12 bg-gradient-to-br from-amber-300 to-amber-500 rounded-full flex items-center justify-center mx-auto mb-2 shadow-sm group-hover:shadow-lg group-hover:scale-110 transition-all duration-300">
+              <span className="text-white font-bold">2</span>
             </div>
-            <p className="text-xs text-gray-600">Define buildings</p>
+            <p className="text-sm font-medium text-gray-700">Define</p>
+            <p className="text-xs text-gray-500 mt-0.5">Building footprints</p>
           </div>
-          <div className="text-center">
-            <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <span className="text-amber-600 font-bold">3</span>
+          <div className="text-center group">
+            <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center mx-auto mb-2 shadow-sm group-hover:shadow-lg group-hover:scale-110 transition-all duration-300">
+              <span className="text-white font-bold">3</span>
             </div>
-            <p className="text-xs text-gray-600">Get sunlight insights</p>
+            <p className="text-sm font-medium text-gray-700">Analyze</p>
+            <p className="text-xs text-gray-500 mt-0.5">Sunlight insights</p>
           </div>
         </div>
       </div>
 
-      <p className="mt-6 text-xs text-center text-gray-600">
+      <p className="mt-6 text-xs text-center text-amber-700/70">
         No login required. Your data stays private.
       </p>
     </div>

@@ -265,10 +265,10 @@ export function DetectionPreviewPanel() {
   if (!image) return null;
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto bg-gradient-validate rounded-2xl p-6">
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Image with Detection Overlay */}
-        <div className="lg:col-span-2 card">
+        <div className="lg:col-span-2 card-validate-hover">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-medium text-gray-900">Detected Elements</h3>
             <label className="flex items-center gap-2 text-sm">
@@ -412,9 +412,9 @@ export function DetectionPreviewPanel() {
         </div>
 
         {/* Detection Results Panel */}
-        <div className="card">
+        <div className="card-validate-hover flex flex-col h-fit">
           {/* Tabs */}
-          <div className="flex border-b border-gray-200 mb-4">
+          <div className="flex border-b border-gray-200 mb-4 flex-shrink-0">
             <button
               className={`flex-1 py-2 text-sm font-medium border-b-2 ${
                 activeTab === "buildings"
@@ -459,7 +459,7 @@ export function DetectionPreviewPanel() {
 
           {/* Buildings Tab */}
           {activeTab === "buildings" && (
-            <div>
+            <div className="flex flex-col">
               {totalBuildingCount > 0 && (
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm text-gray-500">
@@ -482,7 +482,7 @@ export function DetectionPreviewPanel() {
                 </div>
               )}
 
-              <div className="space-y-2 max-h-64 overflow-y-auto">
+              <div className="space-y-2 max-h-80 overflow-y-auto">
                 {/* Show skeleton loading during analysis */}
                 {isAnalyzing && !detectionResult && (
                   <>
@@ -541,19 +541,12 @@ export function DetectionPreviewPanel() {
                   </p>
                 )}
               </div>
-
-              {/* Info about selection */}
-              {totalBuildingCount > 0 && selectedBuildingCount === 0 && (
-                <p className="mt-3 text-xs text-gray-400 text-center">
-                  Select buildings above to import them to your project
-                </p>
-              )}
             </div>
           )}
 
           {/* Amenities Tab */}
           {activeTab === "amenities" && (
-            <div>
+            <div className="flex flex-col">
               {totalAmenityCount > 0 && (
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm text-gray-500">
@@ -576,7 +569,7 @@ export function DetectionPreviewPanel() {
                 </div>
               )}
 
-              <div className="space-y-2 max-h-64 overflow-y-auto">
+              <div className="space-y-2 max-h-80 overflow-y-auto">
                 {detectionResult?.amenities.map((amenity) => (
                   <AmenityItem
                     key={amenity.id}
@@ -591,13 +584,6 @@ export function DetectionPreviewPanel() {
                   </p>
                 )}
               </div>
-
-              {/* Info about selection */}
-              {totalAmenityCount > 0 && selectedAmenityCount === 0 && (
-                <p className="mt-3 text-xs text-gray-400 text-center">
-                  Select amenities above to include them in your project
-                </p>
-              )}
             </div>
           )}
 
@@ -698,27 +684,27 @@ export function DetectionPreviewPanel() {
 
       {/* Selection Summary */}
       {totalSelectedCount > 0 && (
-        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <span className="text-sm font-medium text-blue-900">
+              <span className="text-sm font-medium text-emerald-900">
                 Selected for import:
               </span>
               {selectedBuildingCount > 0 && (
-                <span className="text-sm text-blue-700">
+                <span className="text-sm text-emerald-700">
                   {selectedBuildingCount} building
                   {selectedBuildingCount !== 1 ? "s" : ""}
                 </span>
               )}
               {selectedAmenityCount > 0 && (
-                <span className="text-sm text-blue-700">
+                <span className="text-sm text-emerald-700">
                   {selectedAmenityCount} amenit
                   {selectedAmenityCount !== 1 ? "ies" : "y"}
                 </span>
               )}
             </div>
             <button
-              className="text-xs text-blue-600 hover:underline"
+              className="text-xs text-emerald-600 hover:underline"
               onClick={() => {
                 selectAllDetectedBuildings(false);
                 selectAllDetectedAmenities(false);
@@ -734,13 +720,13 @@ export function DetectionPreviewPanel() {
       <div className="mt-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div className="flex gap-3 order-3 sm:order-1">
           <button
-            className="btn-outline w-full sm:w-auto"
+            className="btn-validate-secondary w-full sm:w-auto"
             onClick={() => setCurrentStep("setup")}
           >
             Back to Setup
           </button>
           <button
-            className="btn-outline w-full sm:w-auto"
+            className="btn-validate-secondary w-full sm:w-auto"
             onClick={() => {
               analysisStartedRef.current = false;
               setDetectionResult(null);
@@ -753,7 +739,7 @@ export function DetectionPreviewPanel() {
         </div>
         <div className="flex flex-col sm:flex-row gap-3 order-1 sm:order-2">
           <button
-            className="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto order-1 sm:order-2"
+            className="btn-validate-primary flex items-center justify-center gap-2 w-full sm:w-auto order-1 sm:order-2"
             onClick={handleImportAndContinue}
           >
             {totalSelectedCount > 0 ? (
@@ -781,7 +767,7 @@ export function DetectionPreviewPanel() {
             </svg>
           </button>
           <button
-            className="btn-outline w-full sm:w-auto order-2 sm:order-1"
+            className="btn-validate-secondary w-full sm:w-auto order-2 sm:order-1"
             onClick={() => setCurrentStep("editor")}
           >
             Skip to Editor

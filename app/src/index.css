@@ -8,17 +8,71 @@
     --color-sun: #f59e0b;
     --color-shadow: #1f2937;
 
-    /* Gradient anchors - Warm (sun/welcome) */
+    /* =================================================================== */
+    /* SECTION-SPECIFIC COLOR THEMES */
+    /* =================================================================== */
+
+    /* Upload Section - Warm Amber/Gold (Welcome, Inviting) */
+    --upload-from: #fffbeb;
+    --upload-via: #fef3c7;
+    --upload-to: #fde68a;
+    --upload-accent: #f59e0b;
+    --upload-accent-dark: #d97706;
+    --upload-card-from: #ffffff;
+    --upload-card-to: rgba(254, 243, 199, 0.4);
+
+    /* Setup Section - Warm Earth/Terracotta (Grounding, Configuration) */
+    --setup-from: #fef7ed;
+    --setup-via: #fed7aa;
+    --setup-to: #fdba74;
+    --setup-accent: #ea580c;
+    --setup-accent-dark: #c2410c;
+    --setup-card-from: #ffffff;
+    --setup-card-to: rgba(254, 215, 170, 0.3);
+
+    /* Validate Section - Fresh Green (Verification, Confirmation) */
+    --validate-from: #ecfdf5;
+    --validate-via: #d1fae5;
+    --validate-to: #a7f3d0;
+    --validate-accent: #059669;
+    --validate-accent-dark: #047857;
+    --validate-card-from: #ffffff;
+    --validate-card-to: rgba(209, 250, 229, 0.4);
+
+    /* Editor Section - Blueprint Blue (Technical, Precise) */
+    --editor-from: #eff6ff;
+    --editor-via: #dbeafe;
+    --editor-to: #bfdbfe;
+    --editor-accent: #2563eb;
+    --editor-accent-dark: #1d4ed8;
+    --editor-card-from: #ffffff;
+    --editor-card-to: rgba(219, 234, 254, 0.4);
+
+    /* Viewer Section - Sky Gradient (Open, Atmospheric) */
+    --viewer-from: #f0f9ff;
+    --viewer-via: #e0f2fe;
+    --viewer-to: #bae6fd;
+    --viewer-accent: #0284c7;
+    --viewer-accent-dark: #0369a1;
+    --viewer-card-from: #ffffff;
+    --viewer-card-to: rgba(224, 242, 254, 0.4);
+
+    /* Results Section - Sunset/Rose Gold (Achievement, Completion) */
+    --results-from: #fff1f2;
+    --results-via: #ffe4e6;
+    --results-to: #fecdd3;
+    --results-accent: #e11d48;
+    --results-accent-dark: #be123c;
+    --results-card-from: #ffffff;
+    --results-card-to: rgba(254, 205, 211, 0.3);
+
+    /* Legacy gradient anchors - kept for backwards compatibility */
     --gradient-warm-from: #fffbeb;
     --gradient-warm-via: #fef3c7;
     --gradient-warm-to: #fde68a;
-
-    /* Gradient anchors - Sky (analysis) */
     --gradient-sky-from: #f0f9ff;
     --gradient-sky-via: #e0f2fe;
     --gradient-sky-to: #bae6fd;
-
-    /* Gradient anchors - Sunset (results) */
     --gradient-sunset-from: #fef3c7;
     --gradient-sunset-via: #fed7aa;
     --gradient-sunset-to: #fdba74;
@@ -44,6 +98,22 @@
     @apply box-border;
   }
 
+  /* =================================================================== */
+  /* SCROLL PRESERVATION */
+  /* Prevents unwanted scroll-to-top when switching sections */
+  /* =================================================================== */
+
+  html {
+    /* Disable automatic scroll restoration by the browser */
+    scroll-behavior: auto;
+  }
+
+  /* Prevent scroll anchoring from interfering with section transitions */
+  main,
+  #main-content {
+    overflow-anchor: none;
+  }
+
   /* Enhanced focus visibility for keyboard users */
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-amber-500;
@@ -58,6 +128,7 @@
   .skip-link {
     @apply absolute -top-10 left-0 bg-amber-500 text-white px-4 py-2 z-50 transition-all;
   }
+
   .skip-link:focus {
     @apply top-0;
   }
@@ -77,91 +148,232 @@
 
   /* Ensure sufficient contrast for gray text - use gray-600 minimum */
   .text-muted {
-    @apply text-gray-600; /* 4.5:1 contrast ratio with white */
+    @apply text-gray-600;
+    /* 4.5:1 contrast ratio with white */
   }
 }
 
 @layer components {
   /* === BUTTONS === */
   .btn {
-    @apply inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium
-           transition-all duration-200 ease-smooth
-           focus:outline-none focus:ring-2 focus:ring-offset-2
-           disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   .btn-primary {
-    @apply btn bg-amber-500 text-white
-           hover:bg-amber-600 hover:shadow-md
-           active:scale-[0.98]
-           focus:ring-amber-500;
+    @apply btn bg-amber-500 text-white hover:bg-amber-600 hover:shadow-md active:scale-[0.98] focus:ring-amber-500;
   }
 
   .btn-secondary {
-    @apply btn bg-gray-200 text-gray-800
-           hover:bg-gray-300 hover:shadow-sm
-           active:scale-[0.98]
-           focus:ring-gray-500;
+    @apply btn bg-gray-200 text-gray-800 hover:bg-gray-300 hover:shadow-sm active:scale-[0.98] focus:ring-gray-500;
   }
 
   .btn-outline {
-    @apply btn border-2 border-gray-300 bg-transparent
-           hover:bg-gray-100 hover:border-gray-400
-           active:scale-[0.98]
-           focus:ring-gray-500;
+    @apply btn border-2 border-gray-300 bg-transparent hover:bg-gray-100 hover:border-gray-400 active:scale-[0.98] focus:ring-gray-500;
   }
 
   /* Ghost button - minimal, for subtle actions */
   .btn-ghost {
-    @apply btn bg-transparent text-gray-600
-           hover:bg-gray-100 hover:text-gray-900
-           active:scale-[0.98]
-           focus:ring-gray-400;
+    @apply btn bg-transparent text-gray-600 hover:bg-gray-100 hover:text-gray-900 active:scale-[0.98] focus:ring-gray-400;
+  }
+
+  /* =================================================================== */
+  /* SECTION-SPECIFIC BUTTONS */
+  /* =================================================================== */
+
+  /* Upload Section Buttons - Amber */
+  .btn-upload-primary {
+    @apply btn text-white active:scale-[0.98] focus:ring-amber-500;
+    background: linear-gradient(135deg, var(--upload-accent) 0%, var(--upload-accent-dark) 100%);
+  }
+  .btn-upload-primary:hover {
+    background: linear-gradient(135deg, var(--upload-accent-dark) 0%, #b45309 100%);
+    @apply shadow-md;
+  }
+  .btn-upload-secondary {
+    @apply btn border-2 border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:border-amber-400 active:scale-[0.98] focus:ring-amber-400;
+  }
+
+  /* Setup Section Buttons - Orange/Terracotta */
+  .btn-setup-primary {
+    @apply btn text-white active:scale-[0.98] focus:ring-orange-500;
+    background: linear-gradient(135deg, var(--setup-accent) 0%, var(--setup-accent-dark) 100%);
+  }
+  .btn-setup-primary:hover {
+    background: linear-gradient(135deg, var(--setup-accent-dark) 0%, #9a3412 100%);
+    @apply shadow-md;
+  }
+  .btn-setup-secondary {
+    @apply btn border-2 border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 hover:border-orange-400 active:scale-[0.98] focus:ring-orange-400;
+  }
+
+  /* Validate Section Buttons - Emerald */
+  .btn-validate-primary {
+    @apply btn text-white active:scale-[0.98] focus:ring-emerald-500;
+    background: linear-gradient(135deg, var(--validate-accent) 0%, var(--validate-accent-dark) 100%);
+  }
+  .btn-validate-primary:hover {
+    background: linear-gradient(135deg, var(--validate-accent-dark) 0%, #065f46 100%);
+    @apply shadow-md;
+  }
+  .btn-validate-secondary {
+    @apply btn border-2 border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-400 active:scale-[0.98] focus:ring-emerald-400;
+  }
+
+  /* Editor Section Buttons - Blue */
+  .btn-editor-primary {
+    @apply btn text-white active:scale-[0.98] focus:ring-blue-500;
+    background: linear-gradient(135deg, var(--editor-accent) 0%, var(--editor-accent-dark) 100%);
+  }
+  .btn-editor-primary:hover {
+    background: linear-gradient(135deg, var(--editor-accent-dark) 0%, #1e40af 100%);
+    @apply shadow-md;
+  }
+  .btn-editor-secondary {
+    @apply btn border-2 border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-400 active:scale-[0.98] focus:ring-blue-400;
+  }
+
+  /* Viewer Section Buttons - Sky Blue */
+  .btn-viewer-primary {
+    @apply btn text-white active:scale-[0.98] focus:ring-sky-500;
+    background: linear-gradient(135deg, var(--viewer-accent) 0%, var(--viewer-accent-dark) 100%);
+  }
+  .btn-viewer-primary:hover {
+    background: linear-gradient(135deg, var(--viewer-accent-dark) 0%, #075985 100%);
+    @apply shadow-md;
+  }
+  .btn-viewer-secondary {
+    @apply btn border-2 border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100 hover:border-sky-400 active:scale-[0.98] focus:ring-sky-400;
+  }
+
+  /* Results Section Buttons - Rose/Coral */
+  .btn-results-primary {
+    @apply btn text-white active:scale-[0.98] focus:ring-rose-500;
+    background: linear-gradient(135deg, var(--results-accent) 0%, var(--results-accent-dark) 100%);
+  }
+  .btn-results-primary:hover {
+    background: linear-gradient(135deg, var(--results-accent-dark) 0%, #9f1239 100%);
+    @apply shadow-md;
+  }
+  .btn-results-secondary {
+    @apply btn border-2 border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:border-rose-400 active:scale-[0.98] focus:ring-rose-400;
   }
 
   /* === CARDS === */
   .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-200 p-6
-           transition-shadow duration-200;
+    @apply rounded-xl shadow-sm border border-gray-200/60 p-6 transition-all duration-200;
+    background: linear-gradient(
+      to bottom right,
+      #ffffff,
+      rgba(249, 250, 251, 0.8)
+    );
+    backdrop-filter: blur(4px);
   }
 
   /* Card with hover shadow */
   .card-hover {
-    @apply card hover:shadow-md;
+    @apply card hover:shadow-md hover:border-gray-300/60;
   }
 
   /* Interactive card - clickable with visual feedback */
   .card-interactive {
-    @apply card cursor-pointer
-           hover:shadow-md hover:border-gray-300
-           active:scale-[0.995];
+    @apply card cursor-pointer hover:shadow-md hover:border-gray-300 active:scale-[0.995];
   }
 
   /* Selected card state */
   .card-selected {
-    @apply card border-amber-300 bg-amber-50/50
-           ring-2 ring-amber-200;
+    @apply rounded-xl shadow-sm p-6 border-amber-300 ring-2 ring-amber-200;
+    background: linear-gradient(
+      to bottom right,
+      rgba(255, 251, 235, 0.8),
+      #ffffff
+    );
   }
 
   /* Accent card with gradient background */
   .card-accent {
-    @apply card bg-gradient-to-br from-amber-50 to-white
-           border-amber-200;
+    @apply rounded-xl shadow-sm border border-amber-200/60 p-6;
+    background: linear-gradient(to bottom right, #fffbeb, #ffffff);
+  }
+
+  /* Glass card for overlaying on colored backgrounds */
+  .card-glass {
+    @apply rounded-xl shadow-sm border border-white/20 p-6;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* =================================================================== */
+  /* SECTION-SPECIFIC CARDS */
+  /* =================================================================== */
+
+  /* Upload Section Cards - Amber tinted */
+  .card-upload {
+    @apply rounded-xl shadow-sm border border-amber-200/60 p-6 transition-all duration-200;
+    background: linear-gradient(to bottom right, var(--upload-card-from), var(--upload-card-to));
+    backdrop-filter: blur(4px);
+  }
+  .card-upload-hover {
+    @apply card-upload hover:shadow-md hover:border-amber-300/60;
+  }
+
+  /* Setup Section Cards - Orange/Earth tinted */
+  .card-setup {
+    @apply rounded-xl shadow-sm border border-orange-200/60 p-6 transition-all duration-200;
+    background: linear-gradient(to bottom right, var(--setup-card-from), var(--setup-card-to));
+    backdrop-filter: blur(4px);
+  }
+  .card-setup-hover {
+    @apply card-setup hover:shadow-md hover:border-orange-300/60;
+  }
+
+  /* Validate Section Cards - Green tinted */
+  .card-validate {
+    @apply rounded-xl shadow-sm border border-emerald-200/60 p-6 transition-all duration-200;
+    background: linear-gradient(to bottom right, var(--validate-card-from), var(--validate-card-to));
+    backdrop-filter: blur(4px);
+  }
+  .card-validate-hover {
+    @apply card-validate hover:shadow-md hover:border-emerald-300/60;
+  }
+
+  /* Editor Section Cards - Blue tinted */
+  .card-editor {
+    @apply rounded-xl shadow-sm border border-blue-200/60 p-6 transition-all duration-200;
+    background: linear-gradient(to bottom right, var(--editor-card-from), var(--editor-card-to));
+    backdrop-filter: blur(4px);
+  }
+  .card-editor-hover {
+    @apply card-editor hover:shadow-md hover:border-blue-300/60;
+  }
+
+  /* Viewer Section Cards - Sky tinted */
+  .card-viewer {
+    @apply rounded-xl shadow-sm border border-sky-200/60 p-6 transition-all duration-200;
+    background: linear-gradient(to bottom right, var(--viewer-card-from), var(--viewer-card-to));
+    backdrop-filter: blur(4px);
+  }
+  .card-viewer-hover {
+    @apply card-viewer hover:shadow-md hover:border-sky-300/60;
+  }
+
+  /* Results Section Cards - Rose tinted */
+  .card-results {
+    @apply rounded-xl shadow-sm border border-rose-200/60 p-6 transition-all duration-200;
+    background: linear-gradient(to bottom right, var(--results-card-from), var(--results-card-to));
+    backdrop-filter: blur(4px);
+  }
+  .card-results-hover {
+    @apply card-results hover:shadow-md hover:border-rose-300/60;
   }
 
   /* === FORM ELEMENTS === */
   .input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg
-           bg-white text-gray-900
-           transition-all duration-150
-           focus:outline-none focus:ring-2 focus:ring-amber-500
-           focus:border-transparent focus:shadow-sm
-           placeholder:text-gray-400;
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent focus:shadow-sm placeholder:text-gray-400;
   }
 
   .input-error {
-    @apply input border-red-500
-           focus:ring-red-500 focus:border-red-500;
+    @apply input border-red-500 focus:ring-red-500 focus:border-red-500;
   }
 
   .label {
@@ -187,11 +399,79 @@
     text-wrap: balance;
   }
 
+  /* =================================================================== */
+  /* SECTION BACKGROUND GRADIENTS */
+  /* =================================================================== */
+
+  /* Upload Section - Warm Amber Radial */
+  .bg-gradient-upload {
+    background:
+      radial-gradient(ellipse at top left, rgba(251, 191, 36, 0.15) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(245, 158, 11, 0.1) 0%, transparent 50%),
+      linear-gradient(135deg, var(--upload-from) 0%, var(--upload-via) 50%, var(--upload-to) 100%);
+  }
+
+  /* Setup Section - Earth Tones with Texture */
+  .bg-gradient-setup {
+    background:
+      radial-gradient(ellipse at top right, rgba(234, 88, 12, 0.12) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom left, rgba(194, 65, 12, 0.08) 0%, transparent 50%),
+      linear-gradient(160deg, var(--setup-from) 0%, var(--setup-via) 60%, var(--setup-to) 100%);
+  }
+
+  /* Validate Section - Fresh Green Bloom */
+  .bg-gradient-validate {
+    background:
+      radial-gradient(ellipse at top center, rgba(16, 185, 129, 0.15) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(5, 150, 105, 0.1) 0%, transparent 60%),
+      linear-gradient(145deg, var(--validate-from) 0%, var(--validate-via) 50%, var(--validate-to) 100%);
+  }
+
+  /* Editor Section - Blueprint Technical */
+  .bg-gradient-editor {
+    background:
+      radial-gradient(ellipse at top left, rgba(37, 99, 235, 0.1) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom center, rgba(29, 78, 216, 0.08) 0%, transparent 50%),
+      linear-gradient(150deg, var(--editor-from) 0%, var(--editor-via) 55%, var(--editor-to) 100%);
+  }
+
+  /* Viewer Section - Open Sky Atmosphere */
+  .bg-gradient-viewer {
+    background:
+      radial-gradient(ellipse at top center, rgba(14, 165, 233, 0.12) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(2, 132, 199, 0.08) 0%, transparent 60%),
+      linear-gradient(180deg, var(--viewer-from) 0%, var(--viewer-via) 60%, var(--viewer-to) 100%);
+  }
+
+  /* Results Section - Sunset Celebration */
+  .bg-gradient-results {
+    background:
+      radial-gradient(ellipse at top right, rgba(251, 113, 133, 0.15) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom left, rgba(225, 29, 72, 0.08) 0%, transparent 50%),
+      linear-gradient(135deg, var(--results-from) 0%, var(--results-via) 55%, var(--results-to) 100%);
+  }
+
+  /* Animation delay utilities */
+  .animation-delay-100 {
+    animation-delay: 100ms;
+  }
+  .animation-delay-200 {
+    animation-delay: 200ms;
+  }
+  .animation-delay-300 {
+    animation-delay: 300ms;
+  }
+  .animation-delay-500 {
+    animation-delay: 500ms;
+  }
+
   /* Hover effect utilities */
   .hover-lift {
-    transition: transform var(--duration-fast) var(--ease-out-smooth),
-                box-shadow var(--duration-fast) var(--ease-out-smooth);
+    transition:
+      transform var(--duration-fast) var(--ease-out-smooth),
+      box-shadow var(--duration-fast) var(--ease-out-smooth);
   }
+
   .hover-lift:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -200,6 +480,7 @@
   .hover-scale {
     transition: transform var(--duration-fast) var(--ease-spring);
   }
+
   .hover-scale:hover {
     transform: scale(1.02);
   }
@@ -207,6 +488,7 @@
   .hover-glow {
     transition: box-shadow var(--duration-fast) var(--ease-out-smooth);
   }
+
   .hover-glow:hover {
     box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
   }
@@ -218,12 +500,7 @@
 
   /* Loading skeleton shimmer */
   .skeleton {
-    background: linear-gradient(
-      90deg,
-      #f3f4f6 25%,
-      #e5e7eb 50%,
-      #f3f4f6 75%
-    );
+    background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
     background-size: 200% 100%;
     animation: shimmer 1.5s ease-in-out infinite;
   }
@@ -231,13 +508,16 @@
   /* Collapsible content animation helper */
   .collapsible-content {
     overflow: hidden;
-    transition: max-height var(--duration-slow) var(--ease-out-smooth),
-                opacity var(--duration-normal) ease-out;
+    transition:
+      max-height var(--duration-slow) var(--ease-out-smooth),
+      opacity var(--duration-normal) ease-out;
   }
+
   .collapsible-content[data-state="closed"] {
     max-height: 0;
     opacity: 0;
   }
+
   .collapsible-content[data-state="open"] {
     max-height: var(--content-height, 2000px);
     opacity: 1;
@@ -247,6 +527,7 @@
   .collapsible-chevron {
     transition: transform var(--duration-normal) var(--ease-out-smooth);
   }
+
   .collapsible-chevron[data-state="open"] {
     transform: rotate(180deg);
   }
@@ -293,13 +574,28 @@
     );
   }
 
-  /* Dark immersive - for 3D viewer */
-  .gradient-dark-immersive {
+  /* Sky horizon - for 3D viewer/analyze section */
+  .gradient-sky-horizon {
     background: linear-gradient(
       180deg,
-      #111827 0%,
-      #1e293b 50%,
-      #0f172a 100%
+      #e0f2fe 0%,
+      /* sky-100 - light sky at top */ #bae6fd 25%,
+      /* sky-200 */ #7dd3fc 50%,
+      /* sky-300 - mid sky */ #fef3c7 80%,
+      /* amber-100 - warm horizon glow */ #fde68a 100%
+        /* amber-200 - golden horizon */
+    );
+  }
+
+  /* Alternative: Soft atmospheric gradient */
+  .gradient-atmosphere {
+    background: linear-gradient(
+      180deg,
+      #f0f9ff 0%,
+      /* sky-50 */ #e0f2fe 30%,
+      /* sky-100 */ #bae6fd 60%,
+      /* sky-200 */ #fef3c7 90%,
+      /* amber-100 - warm base */ #fed7aa 100% /* orange-100 */
     );
   }
 
@@ -342,19 +638,18 @@
 
   /* Sun ray pattern - for hero/welcome sections */
   .bg-pattern-rays {
-    background:
-      conic-gradient(
-        from 0deg at 50% 120%,
-        transparent 0deg,
-        rgba(251, 191, 36, 0.04) 10deg,
-        transparent 20deg,
-        transparent 40deg,
-        rgba(251, 191, 36, 0.04) 50deg,
-        transparent 60deg,
-        transparent 80deg,
-        rgba(251, 191, 36, 0.04) 90deg,
-        transparent 100deg
-      );
+    background: conic-gradient(
+      from 0deg at 50% 120%,
+      transparent 0deg,
+      rgba(251, 191, 36, 0.04) 10deg,
+      transparent 20deg,
+      transparent 40deg,
+      rgba(251, 191, 36, 0.04) 50deg,
+      transparent 60deg,
+      transparent 80deg,
+      rgba(251, 191, 36, 0.04) 90deg,
+      transparent 100deg
+    );
   }
 
   /* Architectural blueprint - for editor backgrounds */
@@ -365,7 +660,11 @@
       linear-gradient(90deg, rgba(59, 130, 246, 0.05) 2px, transparent 2px),
       linear-gradient(rgba(59, 130, 246, 0.025) 1px, transparent 1px),
       linear-gradient(90deg, rgba(59, 130, 246, 0.025) 1px, transparent 1px);
-    background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
+    background-size:
+      100px 100px,
+      100px 100px,
+      20px 20px,
+      20px 20px;
   }
 
   /* Glass surface effect */
@@ -380,6 +679,19 @@
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }
+
+  /* Solid surface backgrounds */
+  .bg-surface-dark {
+    background: #111827; /* gray-900 */
+  }
+
+  .bg-surface-warm {
+    background: #fffbeb; /* amber-50 */
+  }
+
+  .bg-surface-cool {
+    background: #f0f9ff; /* sky-50 */
+  }
 }
 
 /* Animations */
@@ -388,6 +700,7 @@
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -398,8 +711,45 @@
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 
@@ -407,15 +757,18 @@
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
 }
 
 @keyframes glow-pulse {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
   }
+
   50% {
     box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.15);
   }
@@ -428,6 +781,7 @@
     transform: scaleY(0.95);
     transform-origin: top;
   }
+
   to {
     opacity: 1;
     max-height: 1000px;
@@ -436,11 +790,23 @@
 }
 
 .animate-slide-up {
-  animation: slide-up 0.3s var(--ease-out-smooth);
+  animation: slide-up 0.3s var(--ease-out-smooth) both;
 }
 
 .animate-fade-in {
-  animation: fade-in 0.2s var(--ease-out-smooth);
+  animation: fade-in 0.2s var(--ease-out-smooth) both;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.25s var(--ease-spring) both;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s var(--ease-out-smooth) both;
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.3s var(--ease-out-smooth) both;
 }
 
 .animate-glow-pulse {
@@ -489,11 +855,13 @@
 @media (prefers-contrast: more) {
   .card {
     border-width: 2px;
-    border-color: #374151; /* gray-700 */
+    border-color: #374151;
+    /* gray-700 */
   }
 
   .btn-primary {
-    border: 2px solid #92400e; /* amber-800 */
+    border: 2px solid #92400e;
+    /* amber-800 */
   }
 
   .btn-outline {

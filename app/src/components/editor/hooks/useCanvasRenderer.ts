@@ -32,6 +32,7 @@ interface CanvasRendererParams {
   rectangleStart: Point2D | null;
   rectangleEnd: Point2D | null;
   camera?: Camera;
+  hoveredDetectedBuildingIndex?: number | null;
   onImageLoad: (
     offset: { x: number; y: number },
     scale: number,
@@ -64,6 +65,7 @@ export function useCanvasRenderer({
   rectangleStart,
   rectangleEnd,
   camera = { x: 0, y: 0, zoom: 1 },
+  hoveredDetectedBuildingIndex = null,
   onImageLoad,
 }: CanvasRendererParams) {
   useEffect(() => {
@@ -146,8 +148,10 @@ export function useCanvasRenderer({
 
       // Draw detection overlay
       if (showDetectionOverlay && detectionResult) {
-        drawDetectionOverlay(ctx, detectionResult, offsetX, offsetY, ratio);
+        drawDetectionOverlay(ctx, detectionResult, offsetX, offsetY, ratio, hoveredDetectedBuildingIndex);
       }
+
+      // Alignment guides removed - they were showing green lines following cursor
 
       // Draw current drawing points
       if (currentPoints.length > 0) {
@@ -225,6 +229,7 @@ export function useCanvasRenderer({
     rectangleStart,
     rectangleEnd,
     camera,
+    hoveredDetectedBuildingIndex,
     canvasRef,
     onImageLoad,
   ]);
@@ -418,10 +423,12 @@ function drawDetectionOverlay(
   offsetX: number,
   offsetY: number,
   ratio: number,
+  hoveredBuildingIndex: number | null = null,
 ) {
-  // Draw detected buildings
-  ctx.setLineDash([3, 3]);
-  detectionResult.buildings.forEach((detected: DetectedBuilding) => {
+  // Draw detected buildings with hover highlight
+  detectionResult.buildings.forEach((detected: DetectedBuilding, buildingIndex: number) => {
+    const isHovered = buildingIndex === hoveredBuildingIndex;
+
     ctx.beginPath();
     detected.footprint.forEach((point: Point2D, index: number) => {
       const x = offsetX + point.x * ratio;
@@ -433,11 +440,27 @@ function drawDetectionOverlay(
       }
     });
     ctx.closePath();
-    ctx.strokeStyle = "#9ca3af";
-    ctx.lineWidth = 1;
+
+    // Fill with highlight color when hovered
+    if (isHovered) {
+      ctx.fillStyle = "rgba(59, 130, 246, 0.2)";
+      ctx.fill();
+      ctx.strokeStyle = "#3b82f6";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+    } else {
+      ctx.strokeStyle = "#9ca3af";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+    }
     ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Draw edge highlights on hovered building
+    if (isHovered) {
+      drawEdgeHighlights(ctx, detected.footprint, offsetX, offsetY, ratio);
+    }
   });
-  ctx.setLineDash([]);
 
   // Draw detected amenities
   detectionResult.amenities.forEach((amenity: DetectedAmenity) => {
@@ -664,3 +687,59 @@ function drawRectanglePreview(
   ctx.font = "bold 12px Arial";
   ctx.fillText(`${dimArea.toFixed(0)} px²`, centerX, centerY);
 }
+
+/**
+ * Draw edge highlights for a building footprint
+ * Shows vertices and edge midpoints for snapping
+ */
+function drawEdgeHighlights(
+  ctx: CanvasRenderingContext2D,
+  footprint: Point2D[],
+  offsetX: number,
+  offsetY: number,
+  ratio: number,
+) {
+  if (footprint.length < 2) return;
+
+  // Draw vertex highlights
+  footprint.forEach((point, index) => {
+    const x = offsetX + point.x * ratio;
+    const y = offsetY + point.y * ratio;
+
+    // Outer glow
+    ctx.beginPath();
+    ctx.arc(x, y, 8, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(59, 130, 246, 0.3)";
+    ctx.fill();
+
+    // Inner point
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = "#3b82f6";
+    ctx.fill();
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Vertex index label
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 9px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(`${index + 1}`, x, y - 14);
+  });
+
+  // Draw edge midpoints (for edge snapping)
+  for (let i = 0; i < footprint.length; i++) {
+    const p1 = footprint[i];
+    const p2 = footprint[(i + 1) % footprint.length];
+    const midX = offsetX + ((p1.x + p2.x) / 2) * ratio;
+    const midY = offsetY + ((p1.y + p2.y) / 2) * ratio;
+
+    ctx.beginPath();
+    ctx.arc(midX, midY, 3, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(59, 130, 246, 0.5)";
+    ctx.fill();
+  }
+}
+

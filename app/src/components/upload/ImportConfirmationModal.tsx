@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useProjectStore } from '../../store/projectStore';
 import type { ImportSummary, AmenityType } from '../../types';
 
@@ -49,22 +50,31 @@ export function ImportConfirmationModal({
 
   const totalItems = selectedBuildings.length + selectedAmenities.length + (hasCompass ? 1 : 0) + (hasScale ? 1 : 0);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-y-auto animate-fade-in" style={{ isolation: 'isolate' }}>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-xl shadow-2xl max-w-lg w-full my-auto max-h-[calc(100vh-2rem)] flex flex-col overflow-hidden">
+      <div className="relative bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl max-w-lg w-full my-auto max-h-[calc(100vh-2rem)] flex flex-col overflow-hidden border border-emerald-200/60 animate-scale-in">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex-shrink-0">
-          <h2 className="text-xl font-semibold text-white">Confirm Import</h2>
-          <p className="text-blue-100 text-sm mt-1">
-            Review what will be imported to your project
-          </p>
+        <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-5 flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-white">Confirm Import</h2>
+              <p className="text-emerald-100 text-sm mt-0.5">
+                Review what will be imported to your project
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Content */}
@@ -221,16 +231,16 @@ export function ImportConfirmationModal({
         )}
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-white border-t border-gray-200 flex gap-3 justify-end flex-shrink-0">
+        <div className="px-6 py-4 bg-emerald-50/50 border-t border-emerald-100 flex gap-3 justify-end flex-shrink-0">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            className="btn-validate-secondary"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            className="btn-validate-primary flex items-center gap-2"
           >
             {totalItems > 0 ? (
               <>
@@ -270,7 +280,8 @@ export function ImportConfirmationModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -286,7 +297,7 @@ export function ImportSuccessToast({ summary, onClose }: ImportSuccessToastProps
   if (!hasContent) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 animate-slide-up">
+    <div className="fixed bottom-4 right-4 z-[200] animate-slide-up">
       <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-4 max-w-sm">
         <div className="flex items-start gap-3">
           <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">

@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { FocusTrap } from "../../common/FocusTrap";
 import type { ArrayConfig } from "../types";
 
@@ -18,8 +19,8 @@ export function ArrayToolModal({
 }: ArrayToolModalProps) {
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+  return createPortal(
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]" style={{ isolation: 'isolate' }}>
       <FocusTrap active={isOpen} onEscape={onClose}>
         <div
           className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4"
@@ -125,6 +126,7 @@ export function ArrayToolModal({
           </div>
         </div>
       </FocusTrap>
-    </div>
+    </div>,
+    document.body
   );
 }

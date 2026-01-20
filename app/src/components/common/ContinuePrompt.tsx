@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useProjectStore } from '../../store/projectStore';
 import { FocusTrap } from './FocusTrap';
 
@@ -103,9 +104,10 @@ export function ContinuePrompt() {
 
   if (!showPrompt) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4"
+      style={{ isolation: 'isolate' }}
     >
       <FocusTrap active={showPrompt} onEscape={handleStartFresh}>
         <div
@@ -182,6 +184,7 @@ export function ContinuePrompt() {
         </p>
         </div>
       </FocusTrap>
-    </div>
+    </div>,
+    document.body
   );
 }

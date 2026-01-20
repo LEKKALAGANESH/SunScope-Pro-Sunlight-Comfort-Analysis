@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { FocusTrap } from "../../common/FocusTrap";
 import type { BulkEditValidationErrors } from "../types";
 
@@ -32,8 +33,8 @@ export function BulkEditModal({
 }: BulkEditModalProps) {
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+  return createPortal(
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]" style={{ isolation: 'isolate' }}>
       <FocusTrap active={isOpen} onEscape={onClose}>
         <div
           className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4"
@@ -123,6 +124,7 @@ export function BulkEditModal({
           </div>
         </div>
       </FocusTrap>
-    </div>
+    </div>,
+    document.body
   );
 }

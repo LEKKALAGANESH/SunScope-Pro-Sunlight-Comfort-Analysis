@@ -108,7 +108,7 @@ export function SeasonalComparison({
   }
 
   return (
-    <div className="card">
+    <div className="card-results-hover">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-medium text-gray-900">Seasonal Comparison</h3>
         <button

@@ -35,6 +35,8 @@ export interface NavigationControlsProps {
   cameraAzimuth?: number;
   /** Whether controls should be compact (mobile) */
   compact?: boolean;
+  /** Layout direction - vertical (default) or horizontal for mobile */
+  layout?: 'vertical' | 'horizontal';
   /** Additional CSS class */
   className?: string;
 }
@@ -48,8 +50,10 @@ export function NavigationControls({
   onViewPreset,
   cameraAzimuth = 0,
   compact = false,
+  layout = 'vertical',
   className = '',
 }: NavigationControlsProps) {
+  const isHorizontal = layout === 'horizontal';
   const [showTooltip, setShowTooltip] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(true);
   const [hideTimeout, setHideTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
@@ -135,10 +139,10 @@ export function NavigationControls({
 
   const buttonClass = `
     flex items-center justify-center
-    ${compact ? 'w-9 h-9' : 'w-10 h-10'}
+    ${compact ? 'w-7 h-7' : 'w-10 h-10'}
     bg-white/90 backdrop-blur-sm
     border border-gray-200
-    rounded-lg
+    ${compact ? 'rounded-md' : 'rounded-lg'}
     text-gray-700
     hover:bg-white hover:border-gray-300 hover:text-gray-900
     active:bg-gray-100
@@ -147,7 +151,13 @@ export function NavigationControls({
     focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-1
   `;
 
-  const dividerClass = 'w-full h-px bg-gray-200 my-1';
+  const iconClass = compact ? 'w-3.5 h-3.5' : 'w-5 h-5';
+
+  const dividerClass = isHorizontal
+    ? 'h-6 w-px bg-gray-200 mx-0.5'
+    : compact
+      ? 'w-full h-px bg-gray-200 my-0.5'
+      : 'w-full h-px bg-gray-200 my-1';
 
   const tooltips: Record<string, string> = {
     zoomIn: 'Zoom In (+)',
@@ -219,9 +229,9 @@ export function NavigationControls({
   return (
     <div
       className={`
-        flex flex-col gap-1 p-1.5
+        flex ${isHorizontal ? 'flex-row items-center' : 'flex-col'} gap-0.5 ${compact ? 'p-1' : 'p-1.5'}
         bg-white/70 backdrop-blur-md
-        rounded-xl
+        ${compact ? 'rounded-lg' : 'rounded-xl'}
         border border-gray-200/50
         shadow-lg
         transition-opacity duration-300
@@ -240,7 +250,7 @@ export function NavigationControls({
         title={tooltips.north}
       >
         <svg
-          className="w-5 h-5"
+          className={iconClass}
           viewBox="0 0 24 24"
           fill="none"
           style={{ transform: `rotate(${compassRotation}deg)`, transition: 'transform 0.3s ease' }}
@@ -287,7 +297,7 @@ export function NavigationControls({
         aria-label="Zoom in"
         title={tooltips.zoomIn}
       >
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m6-6H6" />
         </svg>
         {showTooltip === 'zoomIn' && <Tooltip text={tooltips.zoomIn} />}
@@ -302,7 +312,7 @@ export function NavigationControls({
         aria-label="Zoom out"
         title={tooltips.zoomOut}
       >
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M18 12H6" />
         </svg>
         {showTooltip === 'zoomOut' && <Tooltip text={tooltips.zoomOut} />}
@@ -319,7 +329,7 @@ export function NavigationControls({
         aria-label="Reset view"
         title={tooltips.home}
       >
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -338,7 +348,7 @@ export function NavigationControls({
         aria-label="Fit all in view"
         title={tooltips.fit}
       >
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -363,7 +373,7 @@ export function NavigationControls({
               title={tooltips.views}
               aria-expanded={showViewMenu}
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
               </svg>
               {showTooltip === 'views' && !showViewMenu && <Tooltip text={tooltips.views} />}
@@ -372,7 +382,7 @@ export function NavigationControls({
             {/* View Presets Dropdown */}
             {showViewMenu && (
               <div
-                className="absolute right-full mr-2 bottom-0 bg-white rounded-lg shadow-xl border border-gray-200 py-1 w-36 z-20"
+                className="absolute right-full mr-2 bottom-0 bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-xl border border-gray-200/60 py-1 w-36 z-20 backdrop-blur-sm"
                 onMouseLeave={() => setShowViewMenu(false)}
               >
                 <div className="px-2 py-1 text-xs text-gray-500 font-medium border-b border-gray-100 mb-1">
@@ -403,7 +413,15 @@ export function NavigationControls({
   );
 }
 
-function Tooltip({ text }: { text: string }) {
+function Tooltip({ text, position = 'left' }: { text: string; position?: 'left' | 'top' }) {
+  if (position === 'top') {
+    return (
+      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
+        {text}
+        <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900" />
+      </div>
+    );
+  }
   return (
     <div className="absolute right-full mr-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
       {text}

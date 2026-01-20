@@ -17,6 +17,7 @@
     "@types/three": "^0.182.0",
     "@types/uuid": "^11.0.0",
     "earcut": "^3.0.2",
+    "edge-detection-wasm": "^2.1.5",
     "file-saver": "^2.0.5",
     "gif.js": "^0.2.0",
     "html2canvas": "^1.4.1",

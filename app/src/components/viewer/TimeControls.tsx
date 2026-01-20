@@ -536,7 +536,7 @@ export function TimeControls() {
         <button
           onClick={() => stepTime(-30)}
           aria-label="Step backward 30 minutes"
-          className="flex-1 flex items-center justify-center gap-1 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
+          className="flex-1 flex items-center justify-center gap-1 py-2 bg-gradient-to-r from-gray-100 to-gray-50 text-gray-700 rounded-lg hover:from-gray-200 hover:to-gray-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
         >
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z" />
@@ -546,7 +546,7 @@ export function TimeControls() {
         <button
           onClick={() => stepTime(-15)}
           aria-label="Step backward 15 minutes"
-          className="flex-1 flex items-center justify-center gap-1 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
+          className="flex-1 flex items-center justify-center gap-1 py-2 bg-gradient-to-r from-gray-100 to-gray-50 text-gray-700 rounded-lg hover:from-gray-200 hover:to-gray-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
         >
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
@@ -556,7 +556,7 @@ export function TimeControls() {
         <button
           onClick={() => stepTime(15)}
           aria-label="Step forward 15 minutes"
-          className="flex-1 flex items-center justify-center gap-1 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
+          className="flex-1 flex items-center justify-center gap-1 py-2 bg-gradient-to-r from-gray-100 to-gray-50 text-gray-700 rounded-lg hover:from-gray-200 hover:to-gray-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
         >
           <span className="text-xs">+15m</span>
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -566,7 +566,7 @@ export function TimeControls() {
         <button
           onClick={() => stepTime(30)}
           aria-label="Step forward 30 minutes"
-          className="flex-1 flex items-center justify-center gap-1 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
+          className="flex-1 flex items-center justify-center gap-1 py-2 bg-gradient-to-r from-gray-100 to-gray-50 text-gray-700 rounded-lg hover:from-gray-200 hover:to-gray-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
         >
           <span className="text-xs">+30m</span>
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -649,10 +649,10 @@ export function TimeControls() {
               aria-label={isLooping ? 'Disable loop' : 'Enable loop'}
               aria-pressed={isLooping}
               title={isLooping ? 'Loop enabled: animation restarts at sunrise' : 'Loop disabled: animation stops at sunset'}
-              className={`p-2 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 ${
+              className={`p-2 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 ${
                 isLooping
-                  ? 'bg-amber-100 text-amber-700'
-                  : 'bg-gray-100 text-gray-500'
+                  ? 'bg-gradient-to-r from-amber-100 to-amber-50 text-amber-700'
+                  : 'bg-gradient-to-r from-gray-100 to-gray-50 text-gray-500'
               }`}
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -688,7 +688,7 @@ export function TimeControls() {
             className={`px-3 py-2 text-xs rounded-lg transition-colors flex items-center justify-center gap-1 ${
               currentTime.getHours() < 12
                 ? 'bg-orange-100 text-orange-800 border border-orange-300'
-                : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
+                : 'bg-gradient-to-r from-gray-50 to-white text-gray-600 hover:from-gray-100 hover:to-gray-50 border border-gray-200'
             }`}
           >
             <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
@@ -707,7 +707,7 @@ export function TimeControls() {
             className={`px-3 py-2 text-xs rounded-lg transition-colors flex items-center justify-center gap-1 ${
               currentTime.getHours() >= 12
                 ? 'bg-orange-100 text-orange-800 border border-orange-300'
-                : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
+                : 'bg-gradient-to-r from-gray-50 to-white text-gray-600 hover:from-gray-100 hover:to-gray-50 border border-gray-200'
             }`}
           >
             <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
@@ -731,7 +731,7 @@ export function TimeControls() {
             className={`px-3 py-2 text-xs rounded-lg transition-colors flex items-center justify-center gap-1 ${
               analysis.date.getMonth() === (site.location.latitude >= 0 ? 5 : 11)
                 ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
+                : 'bg-gradient-to-r from-gray-50 to-white text-gray-600 hover:from-gray-100 hover:to-gray-50 border border-gray-200'
             }`}
           >
             <span className="text-amber-500">☀</span>
@@ -752,7 +752,7 @@ export function TimeControls() {
             className={`px-3 py-2 text-xs rounded-lg transition-colors flex items-center justify-center gap-1 ${
               analysis.date.getMonth() === (site.location.latitude >= 0 ? 11 : 5)
                 ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
+                : 'bg-gradient-to-r from-gray-50 to-white text-gray-600 hover:from-gray-100 hover:to-gray-50 border border-gray-200'
             }`}
           >
             <span className="text-blue-400">❄</span>
@@ -779,7 +779,7 @@ export function TimeControls() {
       />
 
       {/* Sun Info */}
-      <div className="bg-gray-50 rounded-lg p-3 text-sm">
+      <div className="bg-gradient-to-br from-gray-50 to-white rounded-lg p-3 text-sm border border-gray-100">
         <h4 className="font-medium text-gray-700 mb-2">Sun Position</h4>
         <div className="grid grid-cols-2 gap-2 text-gray-600">
           <div>

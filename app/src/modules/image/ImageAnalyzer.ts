@@ -1,9 +1,18 @@
 /**
  * ImageAnalyzer - Advanced image analysis for site plan detection
  * Detects buildings, amenities, compass, and other site elements
+ * Uses Canny edge detection (WASM) for accurate building outlines
  */
 
 import type { Point2D, DetectedBuilding, DetectedAmenity, DetectedCompass, DetectedScale } from '../../types';
+import {
+  detectEdges,
+  extractContoursFromEdges,
+  mergeNearbyContours,
+  findRectangularApproximation,
+  type EdgeDetectionResult,
+  type ContourResult,
+} from './EdgeDetector';
 
 // Internal analysis result type (without selected flag)
 export interface AnalysisResult {
@@ -54,6 +63,7 @@ export class ImageAnalyzer {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private imageData: ImageData | null = null;
+  private edgeResult: EdgeDetectionResult | null = null;
   private width: number = 0;
   private height: number = 0;
 
@@ -65,6 +75,16 @@ export class ImageAnalyzer {
   async analyze(imageDataUrl: string): Promise<AnalysisResult> {
     // Load image
     await this.loadImage(imageDataUrl);
+
+    // Run edge detection first (used by building detection)
+    if (this.imageData) {
+      try {
+        this.edgeResult = await detectEdges(this.imageData);
+      } catch (error) {
+        console.warn('Edge detection failed, falling back to color-based detection:', error);
+        this.edgeResult = null;
+      }
+    }
 
     // Run all detection algorithms
     const [buildings, amenities, compass, scale, roads, vegetation, waterBodies, siteOutline] =
@@ -144,12 +164,24 @@ export class ImageAnalyzer {
 
       if (confidence < 0.4) continue;
 
+      // Try to get better outline using edge detection
+      let finalOutline = component.outline;
+      let finalArea = component.area;
+
+      if (this.edgeResult) {
+        const improvedOutline = this.refineOutlineWithEdges(component, this.edgeResult);
+        if (improvedOutline) {
+          finalOutline = improvedOutline.points;
+          finalArea = improvedOutline.area;
+        }
+      }
+
       buildingIndex++;
       buildings.push({
         id: `building-${buildingIndex}`,
-        footprint: component.outline,
+        footprint: finalOutline,
         boundingBox: component.boundingBox,
-        area: component.area,
+        area: finalArea,
         confidence,
         suggestedName: `Building ${String.fromCharCode(64 + buildingIndex)}`,
         color: this.getBuildingColor(buildingIndex),
@@ -175,6 +207,95 @@ export class ImageAnalyzer {
     });
 
     return nonOverlappingBuildings;
+  }
+
+  /**
+   * Refine building outline using edge detection results
+   */
+  private refineOutlineWithEdges(
+    component: {
+      pixels: number[];
+      outline: Point2D[];
+      boundingBox: { x: number; y: number; width: number; height: number };
+      area: number;
+      centroid: Point2D;
+    },
+    edgeResult: EdgeDetectionResult
+  ): ContourResult | null {
+    const { boundingBox } = component;
+    const padding = 10; // Add some padding around the bounding box
+
+    // Create a mask for the region of interest (expanded bounding box)
+    const regionMask: boolean[] = new Array(this.width * this.height).fill(false);
+
+    const startX = Math.max(0, boundingBox.x - padding);
+    const startY = Math.max(0, boundingBox.y - padding);
+    const endX = Math.min(this.width, boundingBox.x + boundingBox.width + padding);
+    const endY = Math.min(this.height, boundingBox.y + boundingBox.height + padding);
+
+    for (let y = startY; y < endY; y++) {
+      for (let x = startX; x < endX; x++) {
+        regionMask[y * this.width + x] = true;
+      }
+    }
+
+    // Extract contours from edges within this region
+    const contours = extractContoursFromEdges(edgeResult, regionMask);
+
+    if (contours.length === 0) {
+      return null;
+    }
+
+    // Merge nearby contours that might be parts of the same building
+    const mergedContours = mergeNearbyContours(contours, 20);
+
+    // Find the contour that best matches our building region
+    let bestContour: ContourResult | null = null;
+    let bestScore = 0;
+
+    for (const contour of mergedContours) {
+      // Score based on:
+      // 1. Overlap with original component
+      // 2. Area similarity
+      // 3. Centroid proximity
+
+      const centroidDist = Math.hypot(
+        contour.centroid.x - component.centroid.x,
+        contour.centroid.y - component.centroid.y
+      );
+
+      const areaDiff = Math.abs(contour.area - component.area) / component.area;
+
+      // Check if contour centroid is within bounding box
+      const inBounds =
+        contour.centroid.x >= boundingBox.x &&
+        contour.centroid.x <= boundingBox.x + boundingBox.width &&
+        contour.centroid.y >= boundingBox.y &&
+        contour.centroid.y <= boundingBox.y + boundingBox.height;
+
+      if (!inBounds) continue;
+
+      // Calculate score (higher is better)
+      const distScore = 1 / (1 + centroidDist / 50);
+      const areaScore = 1 / (1 + areaDiff);
+      const score = distScore * areaScore;
+
+      if (score > bestScore && contour.area > component.area * 0.3) {
+        bestScore = score;
+        bestContour = contour;
+      }
+    }
+
+    if (bestContour && bestContour.points.length >= 4) {
+      // Get a clean rectangular approximation
+      const approximated = findRectangularApproximation(bestContour);
+      return {
+        ...bestContour,
+        points: approximated,
+      };
+    }
+
+    return null;
   }
 
   /**

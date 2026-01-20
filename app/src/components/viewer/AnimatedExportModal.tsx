@@ -6,6 +6,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import type * as THREE from 'three';
 import {
   generateAnimatedExport,
@@ -147,8 +148,8 @@ export function AnimatedExportModal({
   const estimatedFrames = Math.ceil(((endHour - startHour) * 60) / frameInterval) + 1;
   const estimatedDuration = (estimatedFrames * 200) / 1000; // seconds
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center" style={{ isolation: 'isolate' }}>
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -396,6 +397,7 @@ export function AnimatedExportModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

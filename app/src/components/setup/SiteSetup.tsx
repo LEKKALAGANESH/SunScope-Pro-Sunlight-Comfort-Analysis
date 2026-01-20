@@ -527,10 +527,10 @@ export function SiteSetup() {
   if (!image) return null;
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-5xl mx-auto bg-gradient-setup rounded-2xl p-6">
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Image Canvas */}
-        <div className="lg:col-span-2 card">
+        <div className="lg:col-span-2 card-setup-hover">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-medium text-gray-900">Site Plan</h3>
             <div className="flex gap-1">
@@ -628,7 +628,7 @@ export function SiteSetup() {
         {/* Controls */}
         <div className="space-y-4">
           {/* North Orientation */}
-          <div className="card">
+          <div className="card-setup-hover">
             <h4 className="font-medium text-gray-900 mb-3">
               North Orientation
             </h4>
@@ -667,7 +667,7 @@ export function SiteSetup() {
           </div>
 
           {/* Scale Definition */}
-          <div className="card">
+          <div className="card-setup-hover">
             <h4 className="font-medium text-gray-900 mb-3">Scale Definition</h4>
             <div className="space-y-3">
               <div>
@@ -704,7 +704,7 @@ export function SiteSetup() {
           </div>
 
           {/* Location */}
-          <div className="card">
+          <div className="card-setup-hover">
             <h4 className="font-medium text-gray-900 mb-3">Location</h4>
             <div className="space-y-3">
               <div>
@@ -793,11 +793,11 @@ export function SiteSetup() {
       <div className="mt-6 flex justify-between items-center">
         <button
           onClick={() => setCurrentStep("upload")}
-          className="btn-outline"
+          className="btn-setup-secondary"
         >
           Back
         </button>
-        <button onClick={handleContinue} className="btn-primary">
+        <button onClick={handleContinue} className="btn-setup-primary">
           Continue to Validate
         </button>
       </div>

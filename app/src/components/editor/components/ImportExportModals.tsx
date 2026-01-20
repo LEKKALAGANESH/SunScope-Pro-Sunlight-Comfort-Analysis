@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { FocusTrap } from "../../common/FocusTrap";
 
 interface ExportModalProps {
@@ -24,8 +25,8 @@ export function ExportModal({
 }: ExportModalProps) {
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+  return createPortal(
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]" style={{ isolation: 'isolate' }}>
       <FocusTrap active={isOpen} onEscape={onClose}>
         <div
           className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4"
@@ -68,7 +69,8 @@ export function ExportModal({
           </div>
         </div>
       </FocusTrap>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -88,8 +90,8 @@ export function ImportModal({ isOpen, onClose, onImport }: ImportModalProps) {
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+  return createPortal(
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]" style={{ isolation: 'isolate' }}>
       <FocusTrap active={isOpen} onEscape={onClose}>
         <div
           className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4"
@@ -130,6 +132,7 @@ export function ImportModal({ isOpen, onClose, onImport }: ImportModalProps) {
           </div>
         </div>
       </FocusTrap>
-    </div>
+    </div>,
+    document.body
   );
 }

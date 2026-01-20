@@ -144,6 +144,10 @@ export function EditorCanvas({
   const [dragStartPoint, setDragStartPoint] = useState<Point2D | null>(null);
   const [originalFootprint, setOriginalFootprint] = useState<Point2D[] | null>(null);
 
+
+  // Hovered detected building for edge highlighting
+  const [hoveredDetectedBuildingIndex, setHoveredDetectedBuildingIndex] = useState<number | null>(null);
+
   // Container ref for resize observer
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -270,6 +274,7 @@ export function EditorCanvas({
     rectangleStart,
     rectangleEnd,
     camera,
+    hoveredDetectedBuildingIndex,
     onImageLoad: (offset, scale, scaledWidth, scaledHeight) => {
       setImageOffset(offset);
       setImageScale(scale);
@@ -769,6 +774,16 @@ export function EditorCanvas({
     ) {
       const building = findBuildingAtPoint(point);
       setHoveredBuildingId(building?.id || null);
+    }
+
+    // Check for hovered detected building when overlay is visible
+    if (showDetectionOverlay && detectionResult) {
+      const hoveredIndex = detectionResult.buildings.findIndex((detected) =>
+        isPointInPolygon(point, detected.footprint)
+      );
+      setHoveredDetectedBuildingIndex(hoveredIndex >= 0 ? hoveredIndex : null);
+    } else {
+      setHoveredDetectedBuildingIndex(null);
     }
   };
 
