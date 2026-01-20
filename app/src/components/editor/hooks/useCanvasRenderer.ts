@@ -1,12 +1,12 @@
 import { useEffect, type RefObject } from "react";
 import type {
   Building,
-  Point2D,
-  ImageAnalysisResult,
-  DetectedBuilding,
   DetectedAmenity,
+  DetectedBuilding,
+  ImageAnalysisResult,
+  Point2D,
 } from "../../../types";
-import type { EditorSettings, Tool, Camera } from "../types";
+import type { Camera, EditorSettings, Tool } from "../types";
 
 interface CanvasRendererParams {
   canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -32,7 +32,12 @@ interface CanvasRendererParams {
   rectangleStart: Point2D | null;
   rectangleEnd: Point2D | null;
   camera?: Camera;
-  onImageLoad: (offset: { x: number; y: number }, scale: number) => void;
+  onImageLoad: (
+    offset: { x: number; y: number },
+    scale: number,
+    scaledWidth?: number,
+    scaledHeight?: number,
+  ) => void;
 }
 
 export function useCanvasRenderer({
@@ -74,7 +79,7 @@ export function useCanvasRenderer({
       const containerHeight = 500;
       const ratio = Math.min(
         containerWidth / img.width,
-        containerHeight / img.height
+        containerHeight / img.height,
       );
 
       const scaledWidth = img.width * ratio;
@@ -85,7 +90,7 @@ export function useCanvasRenderer({
 
       const offsetX = (containerWidth - scaledWidth) / 2;
       const offsetY = (containerHeight - scaledHeight) / 2;
-      onImageLoad({ x: offsetX, y: offsetY }, ratio);
+      onImageLoad({ x: offsetX, y: offsetY }, ratio, scaledWidth, scaledHeight);
 
       // Clear canvas
       ctx.fillStyle = "#1f2937";
@@ -96,16 +101,30 @@ export function useCanvasRenderer({
       ctx.translate(camera.x, camera.y);
       ctx.scale(camera.zoom, camera.zoom);
 
-      // Draw image without rotation (keep site plan as default orientation)
-      // North angle is used only for sun calculations, not for rotating the view
+      // Apply north rotation to match setup section
+      // This rotation applies to EVERYTHING (image + buildings + overlays)
+      const imageCenterX = offsetX + scaledWidth / 2;
+      const imageCenterY = offsetY + scaledHeight / 2;
+      ctx.translate(imageCenterX, imageCenterY);
+      ctx.rotate((northAngle * Math.PI) / 180);
+      ctx.translate(-imageCenterX, -imageCenterY);
+
+      // Draw image with rotation applied
       ctx.drawImage(img, offsetX, offsetY, scaledWidth, scaledHeight);
 
-      // Draw grid overlay
+      // Draw grid overlay (also rotated with image)
       if (editorSettings.showGrid && activeTool === "draw") {
-        drawGrid(ctx, offsetX, offsetY, scaledWidth, scaledHeight, editorSettings.gridSize);
+        drawGrid(
+          ctx,
+          offsetX,
+          offsetY,
+          scaledWidth,
+          scaledHeight,
+          editorSettings.gridSize,
+        );
       }
 
-      // Draw existing buildings
+      // Draw existing buildings (also rotated with image - IMPORTANT for correct positioning)
       drawBuildings(
         ctx,
         buildings,
@@ -117,17 +136,12 @@ export function useCanvasRenderer({
         offsetX,
         offsetY,
         ratio,
-        camera.zoom
+        camera.zoom,
       );
 
       // Draw marquee selection rectangle
       if (isMarqueeSelecting && marqueeStart && marqueeEnd) {
         drawMarquee(ctx, marqueeStart, marqueeEnd, offsetX, offsetY, ratio);
-      }
-
-      // Draw multi-select badge
-      if (selectedBuildingIds.size > 1) {
-        drawMultiSelectBadge(ctx, canvas.width, selectedBuildingIds.size);
       }
 
       // Draw detection overlay
@@ -145,27 +159,43 @@ export function useCanvasRenderer({
           offsetX,
           offsetY,
           ratio,
-          camera.zoom
+          camera.zoom,
         );
       }
 
       // Draw rectangle preview
       if (isDrawingRectangle && rectangleStart && rectangleEnd) {
-        drawRectanglePreview(ctx, rectangleStart, rectangleEnd, offsetX, offsetY, ratio);
+        drawRectanglePreview(
+          ctx,
+          rectangleStart,
+          rectangleEnd,
+          offsetX,
+          offsetY,
+          ratio,
+        );
       }
 
-      // Restore camera transform
+      // Restore camera + rotation transform
       ctx.restore();
+
+      // Draw multi-select badge OUTSIDE rotation (fixed position on screen)
+      if (selectedBuildingIds.size > 1) {
+        drawMultiSelectBadge(ctx, canvas.width, selectedBuildingIds.size);
+      }
 
       // Draw zoom indicator (outside camera transform for fixed size)
       if (camera.zoom !== 1) {
         ctx.save();
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
         ctx.fillRect(canvas.width - 60, 10, 50, 24);
-        ctx.fillStyle = 'white';
-        ctx.font = '12px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(`${Math.round(camera.zoom * 100)}%`, canvas.width - 35, 26);
+        ctx.fillStyle = "white";
+        ctx.font = "12px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(
+          `${Math.round(camera.zoom * 100)}%`,
+          canvas.width - 35,
+          26,
+        );
         ctx.restore();
       }
     };
@@ -206,7 +236,7 @@ function drawGrid(
   offsetY: number,
   width: number,
   height: number,
-  gridSize: number
+  gridSize: number,
 ) {
   ctx.save();
   ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
@@ -241,12 +271,13 @@ function drawBuildings(
   offsetX: number,
   offsetY: number,
   ratio: number,
-  zoom: number = 1
+  zoom: number = 1,
 ) {
   buildings.forEach((building) => {
     const isSelected = selectedBuildingIds.has(building.id);
     const isHovered = building.id === hoveredBuildingId;
-    const isBeingEdited = isEditingVertices && building.id === editingBuildingId;
+    const isBeingEdited =
+      isEditingVertices && building.id === editingBuildingId;
 
     ctx.beginPath();
     building.footprint.forEach((point, index) => {
@@ -264,8 +295,8 @@ function drawBuildings(
     ctx.fillStyle = isSelected
       ? `${building.color}99`
       : isHovered
-      ? `${building.color}66`
-      : `${building.color}44`;
+        ? `${building.color}66`
+        : `${building.color}44`;
     ctx.fill();
 
     // Stroke - use different color for multi-select
@@ -338,7 +369,7 @@ function drawMarquee(
   end: Point2D,
   offsetX: number,
   offsetY: number,
-  ratio: number
+  ratio: number,
 ) {
   const startX = offsetX + start.x * ratio;
   const startY = offsetY + start.y * ratio;
@@ -350,7 +381,7 @@ function drawMarquee(
     Math.min(startX, endX),
     Math.min(startY, endY),
     Math.abs(endX - startX),
-    Math.abs(endY - startY)
+    Math.abs(endY - startY),
   );
   ctx.fillStyle = "rgba(59, 130, 246, 0.1)";
   ctx.fill();
@@ -364,7 +395,7 @@ function drawMarquee(
 function drawMultiSelectBadge(
   ctx: CanvasRenderingContext2D,
   canvasWidth: number,
-  count: number
+  count: number,
 ) {
   const badgeX = canvasWidth - 80;
   const badgeY = 20;
@@ -386,7 +417,7 @@ function drawDetectionOverlay(
   detectionResult: ImageAnalysisResult,
   offsetX: number,
   offsetY: number,
-  ratio: number
+  ratio: number,
 ) {
   // Draw detected buildings
   ctx.setLineDash([3, 3]);
@@ -457,7 +488,7 @@ function drawCurrentPoints(
   offsetX: number,
   offsetY: number,
   ratio: number,
-  zoom: number = 1
+  zoom: number = 1,
 ) {
   // Scale sizes inversely with zoom to maintain constant screen size
   const lineWidth = 2 / zoom;
@@ -488,7 +519,13 @@ function drawCurrentPoints(
     const x = offsetX + point.x * ratio;
     const y = offsetY + point.y * ratio;
     ctx.beginPath();
-    ctx.arc(x, y, index === 0 && isNearStartPoint ? startPointRadius : pointRadius, 0, Math.PI * 2);
+    ctx.arc(
+      x,
+      y,
+      index === 0 && isNearStartPoint ? startPointRadius : pointRadius,
+      0,
+      Math.PI * 2,
+    );
     ctx.fillStyle = index === 0 && isNearStartPoint ? "#22c55e" : "#f59e0b";
     ctx.fill();
 
@@ -530,7 +567,13 @@ function drawCurrentPoints(
     const fontSize = 11 / zoom;
 
     ctx.fillStyle = "rgba(34, 197, 94, 0.9)";
-    ctx.roundRect(x - tooltipWidth / 2, y - tooltipHeight / 2, tooltipWidth, tooltipHeight, 4 / zoom);
+    ctx.roundRect(
+      x - tooltipWidth / 2,
+      y - tooltipHeight / 2,
+      tooltipWidth,
+      tooltipHeight,
+      4 / zoom,
+    );
     ctx.fill();
 
     ctx.fillStyle = "#ffffff";
@@ -547,7 +590,7 @@ function drawRectanglePreview(
   rectangleEnd: Point2D,
   offsetX: number,
   offsetY: number,
-  ratio: number
+  ratio: number,
 ) {
   const startX = offsetX + rectangleStart.x * ratio;
   const startY = offsetY + rectangleStart.y * ratio;

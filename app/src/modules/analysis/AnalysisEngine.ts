@@ -245,8 +245,18 @@ export class AnalysisEngine {
     const lastSunTime =
       sunnyPoints.length > 0 ? sunnyPoints[sunnyPoints.length - 1].time : null;
 
-    const totalMinutes = sunnyPoints.length * SAMPLE_INTERVAL_MINUTES;
-    const totalHours = totalMinutes / 60;
+    // Calculate exact total hours from the time span (not sample count)
+    // This ensures consistency: lastSunTime - firstSunTime = totalHours
+    let totalHours = 0;
+    if (firstSunTime && lastSunTime) {
+      const timeDiffMs = lastSunTime.getTime() - firstSunTime.getTime();
+      totalHours = timeDiffMs / (1000 * 60 * 60); // Convert ms to hours
+    }
+
+    // Calculate direct sun hours (actual time in sun, excluding shadow periods)
+    // This counts the sunny sample intervals
+    const directMinutes = sunnyPoints.length * SAMPLE_INTERVAL_MINUTES;
+    const directHours = directMinutes / 60;
 
     // Find continuous blocks
     const continuousBlocks = this.findContinuousBlocks(hourlyData);
@@ -255,7 +265,7 @@ export class AnalysisEngine {
       firstSunTime,
       lastSunTime,
       totalHours,
-      directHours: totalHours, // Same for now (no indirect model)
+      directHours,
       continuousBlocks,
     };
   }

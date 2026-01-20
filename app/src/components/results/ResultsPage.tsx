@@ -65,6 +65,17 @@ export function ResultsPage() {
     });
   };
 
+  // Format duration in hours and minutes (e.g., "10h 45m")
+  const formatDuration = (hours: number): string => {
+    if (hours <= 0) return '0h 0m';
+    const wholeHours = Math.floor(hours);
+    const minutes = Math.round((hours - wholeHours) * 60);
+    if (minutes === 60) {
+      return `${wholeHours + 1}h 0m`;
+    }
+    return `${wholeHours}h ${minutes}m`;
+  };
+
   // Helper to get solar transmittance based on glazing type
   const getSolarTransmittance = (type: string): number => {
     switch (type) {
@@ -227,15 +238,13 @@ export function ResultsPage() {
             <div className="flex justify-between">
               <span className="text-gray-600">Total Hours</span>
               <span className="font-mono font-bold text-amber-600">
-                {results.sunlight.totalHours.toFixed(1)} hrs
-                <span className="text-xs text-gray-400 font-normal ml-1">±30m</span>
+                {formatDuration(results.sunlight.totalHours)}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Direct Sun</span>
               <span className="font-mono">
-                {results.sunlight.directHours.toFixed(1)} hrs
-                <span className="text-xs text-gray-400 ml-1">±30m</span>
+                {formatDuration(results.sunlight.directHours)}
               </span>
             </div>
           </div>
@@ -514,8 +523,8 @@ export function ResultsPage() {
             <div className="mt-3 grid md:grid-cols-3 gap-4 text-sm">
               <div>
                 <span className="text-gray-500">Sun Hours:</span>{' '}
-                <span className="font-medium">{results.sunlight.totalHours.toFixed(1)} hrs</span>
-                <span className="text-gray-400 ml-1">(±30 min)</span>
+                <span className="font-medium">{formatDuration(results.sunlight.totalHours)}</span>
+                <span className="text-gray-400 ml-1">(exact)</span>
               </div>
               <div>
                 <span className="text-gray-500">Peak Irradiance:</span>{' '}

@@ -26,8 +26,8 @@ npm run test:coverage # Generate coverage report
 The app follows a 6-step wizard flow managed by `currentStep` in Zustand store:
 
 1. **upload** - Image upload/drag-drop
-2. **validate** - Auto-detection preview (buildings, amenities, compass, scale)
-3. **setup** - Site configuration (location, scale, north orientation)
+2. **setup** - Site configuration (location, scale, north orientation)
+3. **validate** - Auto-detection preview (buildings, amenities, compass, scale)
 4. **editor** - Manual building footprint annotation on canvas
 5. **viewer** - Interactive 3D Three.js scene with sun/shadow simulation
 6. **results** - Analysis results, recommendations, and export

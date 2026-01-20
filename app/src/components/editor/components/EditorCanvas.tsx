@@ -114,6 +114,7 @@ export function EditorCanvas({
   // Canvas state
   const [imageOffset, setImageOffset] = useState({ x: 0, y: 0 });
   const [imageScale, setImageScale] = useState(1);
+  const [scaledImageSize, setScaledImageSize] = useState({ width: 0, height: 0 });
   const [hoveredBuildingId, setHoveredBuildingId] = useState<string | null>(null);
   const [cursorPosition, setCursorPosition] = useState<Point2D | null>(null);
   const [isNearStartPoint, setIsNearStartPoint] = useState(false);
@@ -233,16 +234,16 @@ export function EditorCanvas({
     };
   }, [camera.zoom, zoomAtPoint]);
 
-  // Mouse wheel zoom
-  const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
+  // Mouse wheel zoom - DISABLED
+  // const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
+  //   e.preventDefault();
 
-    // Zoom factor based on scroll direction
-    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-    const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, camera.zoom * zoomFactor));
+  //   // Zoom factor based on scroll direction
+  //   const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+  //   const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, camera.zoom * zoomFactor));
 
-    zoomAtPoint(newZoom, e.clientX, e.clientY);
-  }, [camera.zoom, zoomAtPoint]);
+  //   zoomAtPoint(newZoom, e.clientX, e.clientY);
+  // }, [camera.zoom, zoomAtPoint]);
 
   // Use canvas renderer hook
   useCanvasRenderer({
@@ -269,9 +270,12 @@ export function EditorCanvas({
     rectangleStart,
     rectangleEnd,
     camera,
-    onImageLoad: (offset, scale) => {
+    onImageLoad: (offset, scale, scaledWidth, scaledHeight) => {
       setImageOffset(offset);
       setImageScale(scale);
+      if (scaledWidth && scaledHeight) {
+        setScaledImageSize({ width: scaledWidth, height: scaledHeight });
+      }
     },
   });
 
@@ -372,15 +376,40 @@ export function EditorCanvas({
     (screenX: number, screenY: number): Point2D => {
       const canvas = canvasRef.current!;
       const rect = canvas.getBoundingClientRect();
-      // Apply camera transform: first camera offset, then zoom, then image offset
+
+      // Step 1: Apply camera transform (offset and zoom)
       const canvasX = (screenX - rect.left - camera.x) / camera.zoom;
       const canvasY = (screenY - rect.top - camera.y) / camera.zoom;
-      // Then apply image offset and scale
-      const x = (canvasX - imageOffset.x) / imageScale;
-      const y = (canvasY - imageOffset.y) / imageScale;
+
+      // Step 2: Apply INVERSE north rotation to convert from rotated canvas space to original image space
+      // The canvas rendering applies rotation around the image center, so we reverse it here
+
+      // Use stored scaled image dimensions
+      const scaledWidth = scaledImageSize.width || canvas.width;
+      const scaledHeight = scaledImageSize.height || canvas.height;
+
+      // Image center in canvas coordinates
+      const imageCenterX = imageOffset.x + scaledWidth / 2;
+      const imageCenterY = imageOffset.y + scaledHeight / 2;
+
+      // Apply inverse rotation around image center
+      const angleRad = (-northAngle * Math.PI) / 180; // Negative for inverse rotation
+      const cosA = Math.cos(angleRad);
+      const sinA = Math.sin(angleRad);
+
+      // Translate to origin, rotate, translate back
+      const relX = canvasX - imageCenterX;
+      const relY = canvasY - imageCenterY;
+      const rotatedX = relX * cosA - relY * sinA + imageCenterX;
+      const rotatedY = relX * sinA + relY * cosA + imageCenterY;
+
+      // Step 3: Apply image offset and scale to get final image coordinates
+      const x = (rotatedX - imageOffset.x) / imageScale;
+      const y = (rotatedY - imageOffset.y) / imageScale;
+
       return { x, y };
     },
-    [imageOffset, imageScale, camera]
+    [imageOffset, imageScale, camera, northAngle, scaledImageSize]
   );
 
   const findBuildingAtPoint = useCallback(
@@ -937,7 +966,6 @@ export function EditorCanvas({
           onMouseMove={handleCanvasMouseMove}
           onMouseUp={handleCanvasMouseUp}
           onMouseLeave={handleCanvasMouseLeave}
-          onWheel={handleWheel}
           onContextMenu={(e) => e.preventDefault()}
           className={`w-full min-h-[300px] sm:min-h-[400px] lg:min-h-[500px] ${getCursorClass()}`}
           role="img"

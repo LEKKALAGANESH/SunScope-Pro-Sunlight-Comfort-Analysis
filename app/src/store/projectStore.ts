@@ -70,6 +70,7 @@ interface ProjectState {
   addBuilding: (footprint: Point2D[], name?: string) => void;
   updateBuilding: (id: string, updates: Partial<Building>) => void;
   removeBuilding: (id: string) => void;
+  clearAllImportedElements: () => void;
   selectBuilding: (id: string | undefined) => void;
   selectFloor: (floor: number | undefined) => void;
   setAnalysisDate: (date: Date) => void;
@@ -197,9 +198,23 @@ export const useProjectStore = create<ProjectState>()(
       hasSeenWelcome: false,
 
   setImage: (image) =>
-    set((state) => ({
-      project: { ...state.project, image },
-      currentStep: 'validate',
+    set(() => ({
+      // Reset project with new image - clear all previous data
+      project: {
+        ...getDefaultProject(),
+        image,
+      },
+      currentStep: 'setup',
+      // Clear all previous state
+      detectionResult: null,
+      analysisResults: null,
+      viewerSnapshot: null,
+      scenarios: [getDefaultScenario()],
+      activeScenarioId: null,
+      displaySettings: getDefaultDisplaySettings(),
+      measurements: [],
+      measurementMode: false,
+      // Mark as having progress with new image
       hasSavedProgress: true,
       lastSavedAt: new Date(),
     })),
@@ -286,6 +301,21 @@ export const useProjectStore = create<ProjectState>()(
             state.project.analysis.selectedBuildingId === id
               ? undefined
               : state.project.analysis.selectedBuildingId,
+        },
+      },
+    })),
+
+  clearAllImportedElements: () =>
+    set((state) => ({
+      project: {
+        ...state.project,
+        buildings: [],
+        amenities: [],
+        importSummary: null,
+        analysis: {
+          ...state.project.analysis,
+          selectedBuildingId: undefined,
+          selectedFloor: undefined,
         },
       },
     })),

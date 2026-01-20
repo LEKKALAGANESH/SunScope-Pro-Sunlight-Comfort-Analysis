@@ -2,11 +2,21 @@ import { useRef, useState, useCallback, useEffect } from 'react';
 import type * as THREE from 'three';
 import { useProjectStore } from '../../store/projectStore';
 import { Scene3D } from './Scene3D';
+import type { Scene3DHandle } from './Scene3D';
+import { DebugOverlay } from './DebugOverlay';
 import { TimeControls } from './TimeControls';
 import { AnimatedExportModal } from './AnimatedExportModal';
 import { CollapsibleSection } from './CollapsibleSection';
+import { NavigationControls } from './NavigationControls';
+import type { ViewPreset } from './NavigationControls';
+import { BuildingInfoPopup } from './BuildingInfoPopup';
+// Phase 5: New components
+import { CompassWidget } from './CompassWidget';
+import { BuildingLabels } from './BuildingLabels';
 import { exportToGLTF } from '../../modules/export/ExportService';
+import { captureScreenshot, downloadDataUrl, createFilename } from './utils/screenshotUtils';
 import type { Building, Vector3 } from '../../types';
+import type { SiteConfig as GeometrySiteConfig } from '../../lib/geometry';
 
 interface SunPositionInfo {
   altitude: number;
@@ -39,6 +49,13 @@ export function ViewerPage() {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const sunLightRef = useRef<THREE.DirectionalLight | null>(null);
+  // Phase 1: Scene3D ref for camera control methods
+  const scene3DRef = useRef<Scene3DHandle>(null);
+  // Phase 5: Container ref for building labels
+  const viewerContainerRef = useRef<HTMLDivElement | null>(null);
+  const [buildingMeshes, setBuildingMeshes] = useState<Map<string, THREE.Object3D>>(new Map());
+  const [showBuildingLabels, setShowBuildingLabels] = useState(true);
+  const [cameraAzimuth, setCameraAzimuth] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
   const [sunPosition, setSunPosition] = useState<SunPositionInfo | null>(null);
   const [hoveredBuilding, setHoveredBuilding] = useState<Building | null>(null);
@@ -57,6 +74,7 @@ export function ViewerPage() {
     flip: false,
   });
   const [immersiveMode, setImmersiveMode] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
 
   // Handle Escape key to exit immersive mode
   useEffect(() => {
@@ -91,12 +109,96 @@ export function ViewerPage() {
     }
   }, [measurementMode, pendingMeasurementPoint, addMeasurement]);
 
+  // Phase 1: Camera azimuth change handler for compass
+  const handleCameraChange = useCallback((azimuth: number) => {
+    setCameraAzimuth(azimuth);
+  }, []);
+
+  // Phase 1: Navigation control handlers
+  const handleZoomIn = useCallback(() => {
+    scene3DRef.current?.zoomIn();
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    scene3DRef.current?.zoomOut();
+  }, []);
+
+  const handleResetView = useCallback(() => {
+    scene3DRef.current?.resetView();
+  }, []);
+
+  const handleFitToView = useCallback(() => {
+    scene3DRef.current?.fitToView();
+  }, []);
+
+  const handleAlignNorth = useCallback(() => {
+    scene3DRef.current?.alignToNorth();
+  }, []);
+
+  // Phase 3: View preset handler
+  const handleViewPreset = useCallback((preset: ViewPreset) => {
+    scene3DRef.current?.setViewPreset(preset);
+  }, []);
+
+  // Phase 3: Focus on building handler
+  const handleFocusBuilding = useCallback((building: Building) => {
+    scene3DRef.current?.focusOnBuilding(building.id);
+  }, []);
+
+  // Phase 3: Floor selection from popup
+  const handleSelectFloorFromPopup = useCallback((floor: number | undefined) => {
+    selectFloor(floor);
+  }, [selectFloor]);
+
   const handleCancelMeasurement = useCallback(() => {
     setPendingMeasurementPoint(null);
     setMeasurementMode(false);
   }, [setMeasurementMode]);
 
+  // Phase 5: Handle building label click
+  const handleLabelClick = useCallback((buildingId: string) => {
+    selectBuilding(buildingId);
+    scene3DRef.current?.focusOnBuilding(buildingId);
+  }, [selectBuilding]);
+
+  // Phase 5: Enhanced screenshot capture
+  const handleScreenshot = useCallback(() => {
+    if (!rendererRef.current || !sceneRef.current || !cameraRef.current) {
+      alert('Scene not ready. Please wait and try again.');
+      return;
+    }
+
+    const dataUrl = captureScreenshot(
+      rendererRef.current,
+      sceneRef.current,
+      cameraRef.current,
+      {
+        pixelRatio: 2,
+        watermark: { text: 'SunScope Pro', position: 'bottom-right' },
+        includeTimestamp: true,
+        format: 'png',
+      }
+    );
+
+    downloadDataUrl(dataUrl, createFilename('sunscope-3d', 'png'));
+  }, []);
+
+  // Phase 5: Handle building meshes update from Scene3D
+  const handleBuildingMeshesUpdate = useCallback((meshes: Map<string, THREE.Object3D>) => {
+    setBuildingMeshes(meshes);
+  }, []);
+
   const selectedBuilding = buildings.find((b) => b.id === analysis.selectedBuildingId);
+
+  // Site configuration for debug overlay
+  const siteConfig: GeometrySiteConfig | null = project.image?.width && project.image?.height
+    ? {
+        imageWidth: project.image.width,
+        imageHeight: project.image.height,
+        scale: project.site.scale,
+        northAngle: project.site.northAngle,
+      }
+    : null;
 
   const handleSceneReady = (
     scene: THREE.Scene,
@@ -158,10 +260,12 @@ export function ViewerPage() {
       <div className="fixed inset-0 z-50 bg-gray-900" style={{ width: '100vw', height: '100vh' }}>
         <div className="w-full h-full relative">
           <Scene3D
+            ref={scene3DRef}
             onSceneReady={handleSceneReady}
             onSunPositionChange={handleSunPositionChange}
             onBuildingHover={handleBuildingHover}
             onMeasurementClick={handleMeasurementClick}
+            onCameraChange={handleCameraChange}
             showNorthArrow={false}
             showSunRay={false}
             showScaleBar={true}
@@ -171,6 +275,18 @@ export function ViewerPage() {
             measurements={measurements}
             measurementMode={measurementMode}
             pendingMeasurementPoint={pendingMeasurementPoint}
+          />
+
+          {/* Phase 1 & 3: Navigation Controls (Immersive Mode) */}
+          <NavigationControls
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+            onResetView={handleResetView}
+            onFitToView={handleFitToView}
+            onAlignNorth={handleAlignNorth}
+            onViewPreset={handleViewPreset}
+            cameraAzimuth={cameraAzimuth}
+            className="absolute bottom-20 right-4 z-10"
           />
 
           {/* Exit Immersive Mode Button */}
@@ -374,6 +490,25 @@ export function ViewerPage() {
 
           {/* Display Options */}
           <CollapsibleSection title="Display Options" defaultCollapsed={true}>
+            {/* Building Labels Toggle */}
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+              <span className="text-xs text-gray-600">Building Labels</span>
+              <button
+                onClick={() => setShowBuildingLabels(!showBuildingLabels)}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                  showBuildingLabels ? 'bg-amber-500' : 'bg-gray-300'
+                }`}
+                aria-pressed={showBuildingLabels}
+                aria-label="Toggle building labels"
+              >
+                <span
+                  className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                    showBuildingLabels ? 'translate-x-5' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
             {/* Floor Transparency */}
             <div className="space-y-3">
               <div>
@@ -511,6 +646,19 @@ export function ViewerPage() {
           {/* Export Options */}
           <CollapsibleSection title="Export" defaultCollapsed={true}>
             <div className="space-y-2">
+              {/* Phase 5: Screenshot Export */}
+              <button
+                onClick={handleScreenshot}
+                disabled={buildings.length === 0}
+                className="w-full btn-outline text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Screenshot (PNG)
+              </button>
+
               {/* GLTF Export */}
               <button
                 onClick={handleExportGLTF}
@@ -552,14 +700,17 @@ export function ViewerPage() {
 
         {/* Main 3D View - First on mobile */}
         <div className="lg:col-span-2 order-1 lg:order-2">
-          <div className="card p-0 overflow-hidden relative">
+          <div className="card p-0 overflow-hidden relative" ref={viewerContainerRef}>
             {/* Responsive height */}
-            <div className="h-[300px] sm:h-[400px] lg:h-[500px]">
+            <div className="h-[300px] sm:h-[400px] lg:h-[500px] relative">
               <Scene3D
+                ref={scene3DRef}
                 onSceneReady={handleSceneReady}
                 onSunPositionChange={handleSunPositionChange}
                 onBuildingHover={handleBuildingHover}
                 onMeasurementClick={handleMeasurementClick}
+                onCameraChange={handleCameraChange}
+                onBuildingMeshesUpdate={handleBuildingMeshesUpdate}
                 showNorthArrow={false}
                 showSunRay={false}
                 showScaleBar={true}
@@ -570,6 +721,76 @@ export function ViewerPage() {
                 measurementMode={measurementMode}
                 pendingMeasurementPoint={pendingMeasurementPoint}
               />
+
+              {/* Phase 1 & 3: Navigation Controls with View Presets */}
+              <NavigationControls
+                onZoomIn={handleZoomIn}
+                onZoomOut={handleZoomOut}
+                onResetView={handleResetView}
+                onFitToView={handleFitToView}
+                onAlignNorth={handleAlignNorth}
+                onViewPreset={handleViewPreset}
+                cameraAzimuth={cameraAzimuth}
+                className="absolute bottom-16 right-3 z-10"
+              />
+
+              {/* Phase 5: Enhanced Compass Widget */}
+              <div className="absolute top-28 left-3 z-10">
+                <CompassWidget
+                  cameraAzimuth={cameraAzimuth * (Math.PI / 180)}
+                  northOffset={project.site.northAngle}
+                  sunAzimuth={sunPosition ? sunPosition.azimuth * (Math.PI / 180) : undefined}
+                  sunAboveHorizon={sunPosition?.isAboveHorizon}
+                  onRotateToNorth={handleAlignNorth}
+                  size={70}
+                  showSunIndicator={true}
+                  compact={false}
+                />
+              </div>
+
+              {/* Phase 5: Building Labels */}
+              {showBuildingLabels && buildings.length > 0 && (
+                <BuildingLabels
+                  buildings={buildings}
+                  camera={cameraRef.current}
+                  container={viewerContainerRef.current}
+                  buildingMeshes={buildingMeshes}
+                  selectedBuildingId={analysis.selectedBuildingId}
+                  onLabelClick={handleLabelClick}
+                  enableDeclutter={true}
+                  minZoomDistance={30}
+                  maxZoomDistance={800}
+                />
+              )}
+
+              {/* Phase 3: Building Info Popup (when building is selected) */}
+              {selectedBuilding && (
+                <BuildingInfoPopup
+                  building={selectedBuilding}
+                  hoveredFloor={hoveredFloor}
+                  sunPosition={sunPosition}
+                  onClose={() => selectBuilding(undefined)}
+                  onFocus={handleFocusBuilding}
+                  onSelectFloor={handleSelectFloorFromPopup}
+                  docked={false}
+                />
+              )}
+
+              {/* Debug Overlay for visualizing building positions */}
+              {siteConfig && (
+                <DebugOverlay
+                  scene={sceneRef.current}
+                  buildings={buildings}
+                  siteConfig={siteConfig}
+                  enabled={debugMode}
+                  settings={{
+                    showCoordinateAxes: true,
+                    showCentroids: true,
+                    showFootprintPoints: true,
+                    showBoundingBoxes: false,
+                  }}
+                />
+              )}
             </div>
 
             {/* Date/Time Overlay */}
@@ -628,6 +849,20 @@ export function ViewerPage() {
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+            </button>
+
+            {/* Debug Mode Toggle */}
+            <button
+              onClick={() => setDebugMode(!debugMode)}
+              className={`absolute top-14 left-3 backdrop-blur-sm text-white p-2 rounded transition-colors shadow-lg ${
+                debugMode ? 'bg-amber-500/80 hover:bg-amber-600/80' : 'bg-black/60 hover:bg-black/80'
+              }`}
+              aria-label="Toggle debug mode"
+              title="Toggle debug visualization (shows building positions and centroids)"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
               </svg>
             </button>
 

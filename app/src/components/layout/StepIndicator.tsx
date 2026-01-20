@@ -3,14 +3,14 @@ import type { AppStep } from '../../types';
 
 const steps: { key: AppStep; label: string; shortLabel: string }[] = [
   { key: 'upload', label: 'Upload', shortLabel: '1' },
-  { key: 'validate', label: 'Validate', shortLabel: '2' },
-  { key: 'setup', label: 'Setup', shortLabel: '3' },
+  { key: 'setup', label: 'Setup', shortLabel: '2' },
+  { key: 'validate', label: 'Validate', shortLabel: '3' },
   { key: 'editor', label: 'Buildings', shortLabel: '4' },
   { key: 'viewer', label: 'Analyze', shortLabel: '5' },
   { key: 'results', label: 'Results', shortLabel: '6' },
 ];
 
-const stepOrder: AppStep[] = ['upload', 'validate', 'setup', 'editor', 'viewer', 'results'];
+const stepOrder: AppStep[] = ['upload', 'setup', 'validate', 'editor', 'viewer', 'results'];
 
 export function StepIndicator() {
   const { currentStep, setCurrentStep, project } = useProjectStore();

@@ -1,33 +1,41 @@
-import { useState, useEffect, useRef } from 'react';
-import { useProjectStore } from '../../store/projectStore';
-import { useImageAnalysisWorker } from '../../hooks/useImageAnalysisWorker';
-import { ImportConfirmationModal, ImportSuccessToast } from './ImportConfirmationModal';
-import type { DetectedBuilding, DetectedAmenity, AmenityType, ImportSummary } from '../../types';
+import { useEffect, useRef, useState } from "react";
+import { useImageAnalysisWorker } from "../../hooks/useImageAnalysisWorker";
+import { useProjectStore } from "../../store/projectStore";
+import type {
+  AmenityType,
+  DetectedAmenity,
+  DetectedBuilding,
+  ImportSummary,
+} from "../../types";
+import {
+  ImportConfirmationModal,
+  ImportSuccessToast,
+} from "./ImportConfirmationModal";
 
 const AMENITY_LABELS: Record<AmenityType, string> = {
-  swimming_pool: 'Swimming Pool',
-  tennis_court: 'Tennis Court',
-  basketball_court: 'Basketball Court',
-  playground: 'Playground',
-  clubhouse: 'Clubhouse',
-  parking: 'Parking',
-  garden: 'Garden',
-  water_body: 'Water Body',
-  jogging_track: 'Jogging Track',
-  unknown: 'Unknown',
+  swimming_pool: "Swimming Pool",
+  tennis_court: "Tennis Court",
+  basketball_court: "Basketball Court",
+  playground: "Playground",
+  clubhouse: "Clubhouse",
+  parking: "Parking",
+  garden: "Garden",
+  water_body: "Water Body",
+  jogging_track: "Jogging Track",
+  unknown: "Unknown",
 };
 
 const AMENITY_ICONS: Record<AmenityType, string> = {
-  swimming_pool: '🏊',
-  tennis_court: '🎾',
-  basketball_court: '🏀',
-  playground: '🎪',
-  clubhouse: '🏛️',
-  parking: '🅿️',
-  garden: '🌳',
-  water_body: '💧',
-  jogging_track: '🏃',
-  unknown: '❓',
+  swimming_pool: "🏊",
+  tennis_court: "🎾",
+  basketball_court: "🏀",
+  playground: "🎪",
+  clubhouse: "🏛️",
+  parking: "🅿️",
+  garden: "🌳",
+  water_body: "💧",
+  jogging_track: "🏃",
+  unknown: "❓",
 };
 
 export function DetectionPreviewPanel() {
@@ -41,28 +49,59 @@ export function DetectionPreviewPanel() {
     selectAllDetectedAmenities,
     importSelectedElements,
     setCurrentStep,
+    clearAllImportedElements,
   } = useProjectStore();
 
   // Use worker-based analysis with progressive updates
-  const {
-    isAnalyzing,
-    progress,
-    partialResults,
-    analyze,
-    cancel,
-  } = useImageAnalysisWorker();
+  const { isAnalyzing, progress, partialResults, analyze, cancel } =
+    useImageAnalysisWorker();
 
   const image = project.image;
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [showOverlay, setShowOverlay] = useState(true);
-  const [activeTab, setActiveTab] = useState<'buildings' | 'amenities' | 'other'>('buildings');
+  const [showOverlay, setShowOverlay] = useState(false);
+  const [activeTab, setActiveTab] = useState<
+    "buildings" | "amenities" | "other"
+  >("buildings");
   const analysisStartedRef = useRef(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
+  const [importSummary, setImportSummary] = useState<ImportSummary | null>(
+    null,
+  );
+  const lastAnalyzedImageRef = useRef<string | null>(null);
 
-  // Run analysis when image is available
+  // Clear detection result and buildings when component mounts (entering validate section)
   useEffect(() => {
-    if (image && !detectionResult && !isAnalyzing && !analysisStartedRef.current) {
+    // Clear previous detection result to start fresh
+    setDetectionResult(null);
+    lastAnalyzedImageRef.current = null;
+
+    // Clear all previously imported buildings and amenities
+    clearAllImportedElements();
+  }, []); // Empty dependency array - runs only on mount
+
+  // Run analysis automatically ONLY when a new image is uploaded (dataUrl changes)
+  useEffect(() => {
+    if (image && image.dataUrl !== lastAnalyzedImageRef.current) {
+      // New image detected - run analysis automatically
+      lastAnalyzedImageRef.current = image.dataUrl;
+      analysisStartedRef.current = true;
+      // Clear any existing detection result to force fresh analysis
+      setDetectionResult(null);
+      runAnalysis();
+    }
+  }, [image?.dataUrl]);
+
+  // Legacy effect - kept for compatibility (fallback)
+  // Only run if we haven't analyzed this specific image yet
+  useEffect(() => {
+    if (
+      image &&
+      !detectionResult &&
+      !isAnalyzing &&
+      !analysisStartedRef.current &&
+      image.dataUrl !== lastAnalyzedImageRef.current
+    ) {
+      lastAnalyzedImageRef.current = image.dataUrl;
       analysisStartedRef.current = true;
       runAnalysis();
     }
@@ -75,34 +114,37 @@ export function DetectionPreviewPanel() {
       const result = await analyze(image.dataUrl);
       setDetectionResult(result);
     } catch (error) {
-      console.error('Image analysis failed:', error);
+      console.error("Image analysis failed:", error);
     }
   };
 
-  // Reset the started ref when image changes
+  // Reset the started ref when image changes (but keep lastAnalyzedImageRef)
   useEffect(() => {
     analysisStartedRef.current = false;
   }, [image?.dataUrl]);
 
   // Draw detection overlay on canvas
   useEffect(() => {
-    if (!canvasRef.current || !image || !detectionResult || !showOverlay) return;
+    if (!canvasRef.current || !image || !detectionResult) return;
 
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw building outlines
+    // Always draw building outlines (selected or all based on showOverlay)
     detectionResult.buildings.forEach((building) => {
+      // If overlay is off, only draw selected buildings
+      if (!showOverlay && !building.selected) return;
+
       ctx.beginPath();
-      ctx.strokeStyle = building.selected ? building.color : '#666666';
+      ctx.strokeStyle = building.selected ? building.color : "#666666";
       ctx.lineWidth = building.selected ? 3 : 1;
       ctx.fillStyle = building.selected
         ? `${building.color}30`
-        : 'rgba(100, 100, 100, 0.1)';
+        : "rgba(100, 100, 100, 0.1)";
 
       const { footprint } = building;
       if (footprint.length > 0) {
@@ -114,89 +156,97 @@ export function DetectionPreviewPanel() {
       }
 
       // Draw label
-      ctx.fillStyle = building.selected ? building.color : '#666666';
-      ctx.font = 'bold 12px sans-serif';
-      ctx.textAlign = 'center';
+      ctx.fillStyle = building.selected ? building.color : "#666666";
+      ctx.font = "bold 12px sans-serif";
+      ctx.textAlign = "center";
       ctx.fillText(
         building.suggestedName,
         building.centroid.x,
-        building.centroid.y
+        building.centroid.y,
       );
     });
 
-    // Draw amenities
+    // Always draw selected amenities, draw all if overlay is on
     detectionResult.amenities.forEach((amenity) => {
+      // If overlay is off, only draw selected amenities
+      if (!showOverlay && !amenity.selected) return;
+
       const icon = AMENITY_ICONS[amenity.type];
-      ctx.font = '16px sans-serif';
-      ctx.textAlign = 'center';
+      ctx.font = "16px sans-serif";
+      ctx.textAlign = "center";
       ctx.fillText(icon, amenity.position.x, amenity.position.y);
     });
 
-    // Draw roads
-    ctx.strokeStyle = '#888888';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([5, 5]);
-    detectionResult.roads.forEach((road) => {
-      if (road.length < 2) return;
-      ctx.beginPath();
-      ctx.moveTo(road[0].x, road[0].y);
-      road.forEach((point) => ctx.lineTo(point.x, point.y));
-      ctx.stroke();
-    });
-    ctx.setLineDash([]);
+    // Only draw other elements if overlay is on
+    if (showOverlay) {
+      // Draw roads
+      ctx.strokeStyle = "#888888";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      detectionResult.roads.forEach((road) => {
+        if (road.length < 2) return;
+        ctx.beginPath();
+        ctx.moveTo(road[0].x, road[0].y);
+        road.forEach((point) => ctx.lineTo(point.x, point.y));
+        ctx.stroke();
+      });
+      ctx.setLineDash([]);
 
-    // Draw vegetation areas
-    ctx.fillStyle = 'rgba(34, 197, 94, 0.2)';
-    ctx.strokeStyle = '#22c55e';
-    ctx.lineWidth = 1;
-    detectionResult.vegetation.forEach((area) => {
-      if (area.length < 3) return;
-      ctx.beginPath();
-      ctx.moveTo(area[0].x, area[0].y);
-      area.forEach((point) => ctx.lineTo(point.x, point.y));
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-    });
+      // Draw vegetation areas
+      ctx.fillStyle = "rgba(34, 197, 94, 0.2)";
+      ctx.strokeStyle = "#22c55e";
+      ctx.lineWidth = 1;
+      detectionResult.vegetation.forEach((area) => {
+        if (area.length < 3) return;
+        ctx.beginPath();
+        ctx.moveTo(area[0].x, area[0].y);
+        area.forEach((point) => ctx.lineTo(point.x, point.y));
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      });
 
-    // Draw water bodies
-    ctx.fillStyle = 'rgba(59, 130, 246, 0.3)';
-    ctx.strokeStyle = '#3b82f6';
-    ctx.lineWidth = 1;
-    detectionResult.waterBodies.forEach((water) => {
-      if (water.length < 3) return;
-      ctx.beginPath();
-      ctx.moveTo(water[0].x, water[0].y);
-      water.forEach((point) => ctx.lineTo(point.x, point.y));
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-    });
+      // Draw water bodies
+      ctx.fillStyle = "rgba(59, 130, 246, 0.3)";
+      ctx.strokeStyle = "#3b82f6";
+      ctx.lineWidth = 1;
+      detectionResult.waterBodies.forEach((water) => {
+        if (water.length < 3) return;
+        ctx.beginPath();
+        ctx.moveTo(water[0].x, water[0].y);
+        water.forEach((point) => ctx.lineTo(point.x, point.y));
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      });
 
-    // Draw compass indicator
-    if (detectionResult.compass) {
-      const { position, northAngle } = detectionResult.compass;
-      ctx.save();
-      ctx.translate(position.x, position.y);
-      ctx.rotate((northAngle * Math.PI) / 180);
-      ctx.fillStyle = '#ef4444';
-      ctx.beginPath();
-      ctx.moveTo(0, -15);
-      ctx.lineTo(5, 5);
-      ctx.lineTo(-5, 5);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = '#333';
-      ctx.font = 'bold 10px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('N', 0, -20);
-      ctx.restore();
+      // Draw compass indicator
+      if (detectionResult.compass) {
+        const { position, northAngle } = detectionResult.compass;
+        ctx.save();
+        ctx.translate(position.x, position.y);
+        ctx.rotate((northAngle * Math.PI) / 180);
+        ctx.fillStyle = "#ef4444";
+        ctx.beginPath();
+        ctx.moveTo(0, -15);
+        ctx.lineTo(5, 5);
+        ctx.lineTo(-5, 5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#333";
+        ctx.font = "bold 10px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("N", 0, -20);
+        ctx.restore();
+      }
     }
   }, [image, detectionResult, showOverlay]);
 
-  const selectedBuildingCount = detectionResult?.buildings.filter((b) => b.selected).length || 0;
+  const selectedBuildingCount =
+    detectionResult?.buildings.filter((b) => b.selected).length || 0;
   const totalBuildingCount = detectionResult?.buildings.length || 0;
-  const selectedAmenityCount = detectionResult?.amenities.filter((a) => a.selected).length || 0;
+  const selectedAmenityCount =
+    detectionResult?.amenities.filter((a) => a.selected).length || 0;
   const totalAmenityCount = detectionResult?.amenities.length || 0;
   const totalSelectedCount = selectedBuildingCount + selectedAmenityCount;
 
@@ -209,7 +259,7 @@ export function DetectionPreviewPanel() {
     const summary = importSelectedElements();
     setImportSummary(summary);
     setShowImportModal(false);
-    setCurrentStep('setup');
+    setCurrentStep("editor");
   };
 
   if (!image) return null;
@@ -228,24 +278,30 @@ export function DetectionPreviewPanel() {
                 onChange={(e) => setShowOverlay(e.target.checked)}
                 className="rounded border-gray-300"
               />
-              Show overlay
+              Show full overlay
             </label>
           </div>
 
           <div className="relative bg-gray-100 rounded-lg overflow-hidden">
-            <img
-              src={image.dataUrl}
-              alt="Site plan"
-              className="w-full h-auto"
-            />
-            {showOverlay && (
+            <div
+              style={{
+                transform: `rotate(${project.site.northAngle}deg)`,
+                transformOrigin: "center center",
+              }}
+              className="relative w-full h-auto"
+            >
+              <img
+                src={image.dataUrl}
+                alt="Site plan"
+                className="w-full h-auto"
+              />
               <canvas
                 ref={canvasRef}
                 width={image.width}
                 height={image.height}
                 className="absolute inset-0 w-full h-full pointer-events-none"
               />
-            )}
+            </div>
 
             {isAnalyzing && (
               <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
@@ -279,7 +335,9 @@ export function DetectionPreviewPanel() {
                   </div>
 
                   {/* Progress Message */}
-                  <p className="text-gray-900 font-medium mb-1">{progress.message}</p>
+                  <p className="text-gray-900 font-medium mb-1">
+                    {progress.message}
+                  </p>
 
                   {/* Progress Bar */}
                   <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3 overflow-hidden">
@@ -291,13 +349,19 @@ export function DetectionPreviewPanel() {
 
                   {/* Stage Indicators */}
                   <div className="flex justify-center gap-1.5 mb-4">
-                    {['buildings', 'amenities', 'roads', 'vegetation', 'complete'].map((stage, i) => (
+                    {[
+                      "buildings",
+                      "amenities",
+                      "roads",
+                      "vegetation",
+                      "complete",
+                    ].map((stage, i) => (
                       <div
                         key={stage}
                         className={`w-2 h-2 rounded-full transition-colors duration-200 ${
                           progress.percent >= (i + 1) * 20
-                            ? 'bg-blue-500'
-                            : 'bg-gray-300'
+                            ? "bg-blue-500"
+                            : "bg-gray-300"
                         }`}
                         title={stage.charAt(0).toUpperCase() + stage.slice(1)}
                       />
@@ -305,9 +369,12 @@ export function DetectionPreviewPanel() {
                   </div>
 
                   {/* Partial Results Preview */}
-                  {(partialResults.buildings as DetectedBuilding[] | undefined)?.length ? (
+                  {(partialResults.buildings as DetectedBuilding[] | undefined)
+                    ?.length ? (
                     <p className="text-xs text-green-600 mb-3">
-                      Found {(partialResults.buildings as DetectedBuilding[]).length} building(s) so far...
+                      Found{" "}
+                      {(partialResults.buildings as DetectedBuilding[]).length}{" "}
+                      building(s) so far...
                     </p>
                   ) : null}
 
@@ -350,11 +417,11 @@ export function DetectionPreviewPanel() {
           <div className="flex border-b border-gray-200 mb-4">
             <button
               className={`flex-1 py-2 text-sm font-medium border-b-2 ${
-                activeTab === 'buildings'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                activeTab === "buildings"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
-              onClick={() => setActiveTab('buildings')}
+              onClick={() => setActiveTab("buildings")}
             >
               Buildings ({totalBuildingCount})
               {selectedBuildingCount > 0 && (
@@ -365,11 +432,11 @@ export function DetectionPreviewPanel() {
             </button>
             <button
               className={`flex-1 py-2 text-sm font-medium border-b-2 ${
-                activeTab === 'amenities'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                activeTab === "amenities"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
-              onClick={() => setActiveTab('amenities')}
+              onClick={() => setActiveTab("amenities")}
             >
               Amenities ({totalAmenityCount})
               {selectedAmenityCount > 0 && (
@@ -380,18 +447,18 @@ export function DetectionPreviewPanel() {
             </button>
             <button
               className={`flex-1 py-2 text-sm font-medium border-b-2 ${
-                activeTab === 'other'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                activeTab === "other"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
-              onClick={() => setActiveTab('other')}
+              onClick={() => setActiveTab("other")}
             >
               Other
             </button>
           </div>
 
           {/* Buildings Tab */}
-          {activeTab === 'buildings' && (
+          {activeTab === "buildings" && (
             <div>
               {totalBuildingCount > 0 && (
                 <div className="flex items-center justify-between mb-3">
@@ -420,7 +487,10 @@ export function DetectionPreviewPanel() {
                 {isAnalyzing && !detectionResult && (
                   <>
                     {[1, 2, 3].map((i) => (
-                      <div key={i} className="flex items-center gap-3 p-2 bg-gray-50 rounded animate-pulse">
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 p-2 bg-gray-50 rounded animate-pulse"
+                      >
                         <div className="w-4 h-4 bg-gray-200 rounded" />
                         <div className="w-4 h-4 bg-gray-200 rounded" />
                         <div className="flex-1">
@@ -433,22 +503,27 @@ export function DetectionPreviewPanel() {
                 )}
 
                 {/* Show partial results during analysis */}
-                {isAnalyzing && (partialResults.buildings as DetectedBuilding[] | undefined)?.map((building) => (
-                  <div
-                    key={building.id}
-                    className="flex items-center gap-3 p-2 bg-blue-50 border border-blue-200 rounded opacity-75"
-                  >
-                    <span className="w-4 h-4 border-2 border-blue-300 rounded animate-pulse" />
-                    <span
-                      className="w-4 h-4 rounded"
-                      style={{ backgroundColor: building.color }}
-                    />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-700">{building.suggestedName}</p>
-                      <p className="text-xs text-gray-500">Detecting...</p>
+                {isAnalyzing &&
+                  (
+                    partialResults.buildings as DetectedBuilding[] | undefined
+                  )?.map((building) => (
+                    <div
+                      key={building.id}
+                      className="flex items-center gap-3 p-2 bg-blue-50 border border-blue-200 rounded opacity-75"
+                    >
+                      <span className="w-4 h-4 border-2 border-blue-300 rounded animate-pulse" />
+                      <span
+                        className="w-4 h-4 rounded"
+                        style={{ backgroundColor: building.color }}
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-700">
+                          {building.suggestedName}
+                        </p>
+                        <p className="text-xs text-gray-500">Detecting...</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
 
                 {/* Show final results */}
                 {detectionResult?.buildings.map((building) => (
@@ -461,7 +536,8 @@ export function DetectionPreviewPanel() {
 
                 {!isAnalyzing && totalBuildingCount === 0 && (
                   <p className="text-sm text-gray-500 text-center py-4">
-                    No buildings detected. You can manually trace them in the editor.
+                    No buildings detected. You can manually trace them in the
+                    editor.
                   </p>
                 )}
               </div>
@@ -476,7 +552,7 @@ export function DetectionPreviewPanel() {
           )}
 
           {/* Amenities Tab */}
-          {activeTab === 'amenities' && (
+          {activeTab === "amenities" && (
             <div>
               {totalAmenityCount > 0 && (
                 <div className="flex items-center justify-between mb-3">
@@ -526,7 +602,7 @@ export function DetectionPreviewPanel() {
           )}
 
           {/* Other Tab */}
-          {activeTab === 'other' && (
+          {activeTab === "other" && (
             <div className="space-y-4">
               {/* Compass */}
               <div className="p-3 bg-gray-50 rounded">
@@ -537,7 +613,8 @@ export function DetectionPreviewPanel() {
                   <div className="flex items-center gap-2">
                     <span className="text-green-500">✓</span>
                     <span className="text-sm">
-                      Detected (confidence: {Math.round(detectionResult.compass.confidence * 100)}%)
+                      Detected (confidence:{" "}
+                      {Math.round(detectionResult.compass.confidence * 100)}%)
                     </span>
                   </div>
                 ) : (
@@ -549,7 +626,9 @@ export function DetectionPreviewPanel() {
 
               {/* Roads */}
               <div className="p-3 bg-gray-50 rounded">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Roads</h4>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">
+                  Roads
+                </h4>
                 <p className="text-sm text-gray-600">
                   {detectionResult?.roads.length || 0} road segment(s) detected
                 </p>
@@ -585,7 +664,10 @@ export function DetectionPreviewPanel() {
                     <div>
                       <span className="text-gray-500">Brightness:</span>
                       <span className="ml-1">
-                        {Math.round(detectionResult.imageStats.brightness * 100)}%
+                        {Math.round(
+                          detectionResult.imageStats.brightness * 100,
+                        )}
+                        %
                       </span>
                     </div>
                     <div>
@@ -596,14 +678,16 @@ export function DetectionPreviewPanel() {
                     </div>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1">
-                    {detectionResult.imageStats.dominantColors.slice(0, 5).map((color, i) => (
-                      <span
-                        key={i}
-                        className="w-6 h-6 rounded border border-gray-300"
-                        style={{ backgroundColor: color }}
-                        title={color}
-                      />
-                    ))}
+                    {detectionResult.imageStats.dominantColors
+                      .slice(0, 5)
+                      .map((color, i) => (
+                        <span
+                          key={i}
+                          className="w-6 h-6 rounded border border-gray-300"
+                          style={{ backgroundColor: color }}
+                          title={color}
+                        />
+                      ))}
                   </div>
                 </div>
               )}
@@ -622,12 +706,14 @@ export function DetectionPreviewPanel() {
               </span>
               {selectedBuildingCount > 0 && (
                 <span className="text-sm text-blue-700">
-                  {selectedBuildingCount} building{selectedBuildingCount !== 1 ? 's' : ''}
+                  {selectedBuildingCount} building
+                  {selectedBuildingCount !== 1 ? "s" : ""}
                 </span>
               )}
               {selectedAmenityCount > 0 && (
                 <span className="text-sm text-blue-700">
-                  {selectedAmenityCount} amenit{selectedAmenityCount !== 1 ? 'ies' : 'y'}
+                  {selectedAmenityCount} amenit
+                  {selectedAmenityCount !== 1 ? "ies" : "y"}
                 </span>
               )}
             </div>
@@ -646,16 +732,25 @@ export function DetectionPreviewPanel() {
 
       {/* Actions */}
       <div className="mt-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <button
-          className="btn-outline w-full sm:w-auto order-3 sm:order-1"
-          onClick={() => {
-            analysisStartedRef.current = false;
-            runAnalysis();
-          }}
-          disabled={isAnalyzing}
-        >
-          {isAnalyzing ? 'Analyzing...' : 'Re-analyze Image'}
-        </button>
+        <div className="flex gap-3 order-3 sm:order-1">
+          <button
+            className="btn-outline w-full sm:w-auto"
+            onClick={() => setCurrentStep("setup")}
+          >
+            Back to Setup
+          </button>
+          <button
+            className="btn-outline w-full sm:w-auto"
+            onClick={() => {
+              analysisStartedRef.current = false;
+              setDetectionResult(null);
+              runAnalysis();
+            }}
+            disabled={isAnalyzing}
+          >
+            {isAnalyzing ? "Analyzing..." : "Re-analyze Image"}
+          </button>
+        </div>
         <div className="flex flex-col sm:flex-row gap-3 order-1 sm:order-2">
           <button
             className="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto order-1 sm:order-2"
@@ -669,17 +764,27 @@ export function DetectionPreviewPanel() {
                 </span>
               </>
             ) : (
-              'Continue to Setup'
+              "Continue to Editor"
             )}
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13 7l5 5m0 0l-5 5m5-5H6"
+              />
             </svg>
           </button>
           <button
             className="btn-outline w-full sm:w-auto order-2 sm:order-1"
-            onClick={() => setCurrentStep('setup')}
+            onClick={() => setCurrentStep("editor")}
           >
-            Skip to Setup
+            Skip to Editor
           </button>
         </div>
       </div>
@@ -713,7 +818,9 @@ function BuildingItem({
   return (
     <label
       className={`flex items-center gap-3 p-2 rounded cursor-pointer transition-colors ${
-        building.selected ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50 hover:bg-gray-100'
+        building.selected
+          ? "bg-blue-50 border border-blue-200"
+          : "bg-gray-50 hover:bg-gray-100"
       }`}
     >
       <input
@@ -731,7 +838,8 @@ function BuildingItem({
           {building.suggestedName}
         </p>
         <p className="text-xs text-gray-500">
-          {Math.round(building.area)} px² • {Math.round(building.confidence * 100)}% confidence
+          {Math.round(building.area)} px² •{" "}
+          {Math.round(building.confidence * 100)}% confidence
         </p>
       </div>
     </label>
@@ -749,7 +857,9 @@ function AmenityItem({
   return (
     <label
       className={`flex items-center gap-3 p-2 rounded cursor-pointer transition-colors ${
-        amenity.selected ? 'bg-green-50 border border-green-200' : 'bg-gray-50 hover:bg-gray-100'
+        amenity.selected
+          ? "bg-green-50 border border-green-200"
+          : "bg-gray-50 hover:bg-gray-100"
       }`}
     >
       <input

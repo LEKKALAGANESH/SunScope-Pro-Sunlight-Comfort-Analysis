@@ -652,7 +652,7 @@ export function MassingEditor() {
       {/* Actions */}
       <EditorActions
         buildingsCount={buildings.length}
-        onBack={() => setCurrentStep("setup")}
+        onBack={() => setCurrentStep("validate")}
         onContinue={handleContinueToViewer}
       />
 

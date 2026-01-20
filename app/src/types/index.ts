@@ -162,7 +162,7 @@ export interface Scenario {
 }
 
 // UI State types
-export type AppStep = 'upload' | 'validate' | 'setup' | 'editor' | 'viewer' | 'results';
+export type AppStep = 'upload' | 'setup' | 'validate' | 'editor' | 'viewer' | 'results';
 
 export interface ValidationItem {
   label: string;

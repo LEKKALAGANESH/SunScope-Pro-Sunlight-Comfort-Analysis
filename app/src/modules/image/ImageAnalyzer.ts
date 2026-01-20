@@ -157,8 +157,11 @@ export class ImageAnalyzer {
       });
     }
 
+    // Remove overlapping buildings (keep the larger one)
+    const nonOverlappingBuildings = this.removeOverlappingBuildings(buildings);
+
     // Sort by position (top-left to bottom-right)
-    buildings.sort((a, b) => {
+    nonOverlappingBuildings.sort((a, b) => {
       const rowA = Math.floor(a.centroid.y / (this.height / 5));
       const rowB = Math.floor(b.centroid.y / (this.height / 5));
       if (rowA !== rowB) return rowA - rowB;
@@ -166,11 +169,81 @@ export class ImageAnalyzer {
     });
 
     // Rename after sorting
-    buildings.forEach((b, i) => {
+    nonOverlappingBuildings.forEach((b, i) => {
       b.suggestedName = `Tower ${i + 1}`;
+      b.id = `building-${i + 1}`;
     });
 
-    return buildings;
+    return nonOverlappingBuildings;
+  }
+
+  /**
+   * Remove overlapping buildings, keeping the larger one
+   */
+  private removeOverlappingBuildings(
+    buildings: Omit<DetectedBuilding, 'selected'>[]
+  ): Omit<DetectedBuilding, 'selected'>[] {
+    const result: Omit<DetectedBuilding, 'selected'>[] = [];
+    const removed = new Set<string>();
+
+    // Sort by area (largest first)
+    const sorted = [...buildings].sort((a, b) => b.area - a.area);
+
+    for (const building of sorted) {
+      if (removed.has(building.id)) continue;
+
+      let shouldAdd = true;
+
+      // Check overlap with already accepted buildings
+      for (const existing of result) {
+        const overlapRatio = this.calculateOverlapRatio(building.boundingBox, existing.boundingBox);
+
+        // If significant overlap (>30%), mark as duplicate
+        if (overlapRatio > 0.3) {
+          // Keep the one with higher confidence, or the larger one
+          if (building.confidence > existing.confidence || building.area > existing.area) {
+            // Remove the existing one and add this one
+            const index = result.findIndex(b => b.id === existing.id);
+            if (index !== -1) {
+              result.splice(index, 1);
+            }
+          } else {
+            shouldAdd = false;
+          }
+          break;
+        }
+      }
+
+      if (shouldAdd) {
+        result.push(building);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Calculate the overlap ratio between two bounding boxes
+   */
+  private calculateOverlapRatio(
+    box1: { x: number; y: number; width: number; height: number },
+    box2: { x: number; y: number; width: number; height: number }
+  ): number {
+    const x1 = Math.max(box1.x, box2.x);
+    const y1 = Math.max(box1.y, box2.y);
+    const x2 = Math.min(box1.x + box1.width, box2.x + box2.width);
+    const y2 = Math.min(box1.y + box1.height, box2.y + box2.height);
+
+    if (x2 <= x1 || y2 <= y1) {
+      return 0; // No overlap
+    }
+
+    const overlapArea = (x2 - x1) * (y2 - y1);
+    const area1 = box1.width * box1.height;
+    const area2 = box2.width * box2.height;
+    const smallerArea = Math.min(area1, area2);
+
+    return overlapArea / smallerArea;
   }
 
   private async detectAmenities(): Promise<Omit<DetectedAmenity, 'selected'>[]> {
@@ -545,17 +618,15 @@ export class ImageAnalyzer {
       }
 
       if (component.length > 50) { // Minimum size threshold
-        // Simplify outline (just use bounding box corners for now)
-        const outline: Point2D[] = [
-          { x: minX, y: minY },
-          { x: maxX, y: minY },
-          { x: maxX, y: maxY },
-          { x: minX, y: maxY },
-        ];
+        // Extract actual outline using contour tracing
+        const outline = this.traceContour(component, minX, minY, maxX, maxY);
+
+        // Simplify the outline to reduce points while preserving shape
+        const simplifiedOutline = this.simplifyOutline(outline, 5);
 
         components.push({
           pixels: component,
-          outline,
+          outline: simplifiedOutline.length >= 3 ? simplifiedOutline : outline,
           boundingBox: {
             x: minX,
             y: minY,
@@ -572,6 +643,167 @@ export class ImageAnalyzer {
     }
 
     return components;
+  }
+
+  /**
+   * Trace the contour of a connected component using a simple boundary following algorithm
+   */
+  private traceContour(
+    componentPixels: number[],
+    minX: number,
+    minY: number,
+    maxX: number,
+    maxY: number
+  ): Point2D[] {
+    // Create a local grid for the component
+    const width = maxX - minX + 3; // Add padding
+    const height = maxY - minY + 3;
+    const grid: boolean[][] = Array(height).fill(null).map(() => Array(width).fill(false));
+
+    // Fill the grid with component pixels
+    for (const pixel of componentPixels) {
+      const x = (pixel % this.width) - minX + 1;
+      const y = Math.floor(pixel / this.width) - minY + 1;
+      if (x >= 0 && x < width && y >= 0 && y < height) {
+        grid[y][x] = true;
+      }
+    }
+
+    // Find starting point (topmost-leftmost boundary pixel)
+    let startX = -1, startY = -1;
+    outer: for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (grid[y][x]) {
+          startX = x;
+          startY = y;
+          break outer;
+        }
+      }
+    }
+
+    if (startX === -1) {
+      // Fallback to bounding box
+      return [
+        { x: minX, y: minY },
+        { x: maxX, y: minY },
+        { x: maxX, y: maxY },
+        { x: minX, y: maxY },
+      ];
+    }
+
+    // Moore neighborhood boundary tracing
+    const outline: Point2D[] = [];
+    const directions = [
+      { dx: 1, dy: 0 },   // 0: right
+      { dx: 1, dy: 1 },   // 1: right-down
+      { dx: 0, dy: 1 },   // 2: down
+      { dx: -1, dy: 1 },  // 3: left-down
+      { dx: -1, dy: 0 },  // 4: left
+      { dx: -1, dy: -1 }, // 5: left-up
+      { dx: 0, dy: -1 },  // 6: up
+      { dx: 1, dy: -1 },  // 7: right-up
+    ];
+
+    let x = startX, y = startY;
+    let dir = 7; // Start looking up-right
+    const maxIterations = componentPixels.length * 4;
+    let iterations = 0;
+
+    do {
+      outline.push({
+        x: x + minX - 1, // Convert back to image coordinates
+        y: y + minY - 1
+      });
+
+      // Look for next boundary pixel
+      let found = false;
+      for (let i = 0; i < 8; i++) {
+        const checkDir = (dir + 5 + i) % 8; // Start checking from back-left
+        const nx = x + directions[checkDir].dx;
+        const ny = y + directions[checkDir].dy;
+
+        if (nx >= 0 && nx < width && ny >= 0 && ny < height && grid[ny][nx]) {
+          x = nx;
+          y = ny;
+          dir = checkDir;
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) break;
+      iterations++;
+    } while ((x !== startX || y !== startY) && iterations < maxIterations);
+
+    // If outline is too short, fall back to bounding box
+    if (outline.length < 4) {
+      return [
+        { x: minX, y: minY },
+        { x: maxX, y: minY },
+        { x: maxX, y: maxY },
+        { x: minX, y: maxY },
+      ];
+    }
+
+    return outline;
+  }
+
+  /**
+   * Simplify outline using Ramer-Douglas-Peucker algorithm
+   */
+  private simplifyOutline(points: Point2D[], epsilon: number): Point2D[] {
+    if (points.length < 3) return points;
+
+    // Find the point with the maximum distance from the line between first and last
+    let maxDist = 0;
+    let maxIndex = 0;
+
+    const first = points[0];
+    const last = points[points.length - 1];
+
+    for (let i = 1; i < points.length - 1; i++) {
+      const dist = this.perpendicularDistance(points[i], first, last);
+      if (dist > maxDist) {
+        maxDist = dist;
+        maxIndex = i;
+      }
+    }
+
+    // If max distance is greater than epsilon, recursively simplify
+    if (maxDist > epsilon) {
+      const left = this.simplifyOutline(points.slice(0, maxIndex + 1), epsilon);
+      const right = this.simplifyOutline(points.slice(maxIndex), epsilon);
+
+      // Combine results (remove duplicate point at the junction)
+      return [...left.slice(0, -1), ...right];
+    } else {
+      // Return just the endpoints
+      return [first, last];
+    }
+  }
+
+  /**
+   * Calculate perpendicular distance from point to line
+   */
+  private perpendicularDistance(point: Point2D, lineStart: Point2D, lineEnd: Point2D): number {
+    const dx = lineEnd.x - lineStart.x;
+    const dy = lineEnd.y - lineStart.y;
+
+    if (dx === 0 && dy === 0) {
+      // Line is a point
+      return Math.sqrt(
+        Math.pow(point.x - lineStart.x, 2) + Math.pow(point.y - lineStart.y, 2)
+      );
+    }
+
+    const t = Math.max(0, Math.min(1,
+      ((point.x - lineStart.x) * dx + (point.y - lineStart.y) * dy) / (dx * dx + dy * dy)
+    ));
+
+    const projX = lineStart.x + t * dx;
+    const projY = lineStart.y + t * dy;
+
+    return Math.sqrt(Math.pow(point.x - projX, 2) + Math.pow(point.y - projY, 2));
   }
 
   private analyzeImageStats(): { dominantColors: string[]; brightness: number; contrast: number } {

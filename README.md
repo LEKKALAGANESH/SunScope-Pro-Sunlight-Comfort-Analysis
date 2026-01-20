@@ -87,14 +87,14 @@ SunScope Pro follows a 6-step wizard flow:
 ### 1. Upload
 Upload your site plan image (PNG, JPG, or PDF). The tool accepts floor plans, site layouts, or aerial views.
 
-### 2. Validate
-Review auto-detected buildings, amenities, compass orientation, and scale markers. Confirm or adjust detections.
-
-### 3. Setup
+### 2. Setup
 Configure site parameters:
 - Set geographic location (latitude/longitude)
 - Define north orientation
 - Calibrate scale (meters per pixel)
+
+### 3. Validate
+Review auto-detected buildings, amenities, compass orientation, and scale markers. Confirm or adjust detections.
 
 ### 4. Editor
 Define building footprints using the canvas-based massing editor:

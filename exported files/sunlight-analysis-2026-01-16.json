@@ -1,0 +1,473 @@
+{
+  "meta": {
+    "generator": "SunScope Pro",
+    "version": "1.0.0",
+    "generatedAt": "2026-01-16T13:49:20.797Z"
+  },
+  "location": {
+    "city": "Hyderabad",
+    "latitude": 17.385,
+    "longitude": 78.4867,
+    "timezone": "Asia/Kolkata"
+  },
+  "building": null,
+  "analysisDate": "2026-01-16T05:13:09.848Z",
+  "analyzedFloor": null,
+  "sunlight": {
+    "firstSunTime": "2026-01-16T01:35:35.970Z",
+    "lastSunTime": "2026-01-16T12:20:35.970Z",
+    "totalHours": 11,
+    "directHours": 11,
+    "continuousBlocks": [
+      {
+        "start": "2026-01-16T01:35:35.970Z",
+        "end": "2026-01-16T12:20:35.970Z",
+        "durationMinutes": 660
+      }
+    ]
+  },
+  "solar": {
+    "peakIrradiance": 779.6840185964895,
+    "peakTime": "2026-01-16T06:50:35.970Z",
+    "dailyIrradiation": 5136.371001726354
+  },
+  "comfort": {
+    "score": 53,
+    "riskLevel": "medium",
+    "peakHeatPeriod": {
+      "start": "2026-01-16T01:35:35.970Z",
+      "end": "2026-01-16T12:20:35.970Z",
+      "durationMinutes": 660
+    },
+    "recommendations": [
+      "Best natural light: 07:05 AM to 05:50 PM (11.0 hours total)",
+      "Morning ventilation: Open windows 07:05 AM - 11:20 AM before heat builds",
+      "Evening ventilation: Re-open windows after 02:20 PM when heat subsides",
+      "Peak heat at 12:20 PM (780 W/m²). Close blinds 11:20 AM - 02:20 PM",
+      "Morning sun 07:05 AM: Ideal for plants needing gentle light"
+    ]
+  },
+  "hourlyData": [
+    {
+      "hour": 6,
+      "time": "2026-01-16T01:20:35.970Z",
+      "sunAltitude": -0.6602586643236822,
+      "sunAzimuth": -68.11567874799233,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 0
+    },
+    {
+      "hour": 7,
+      "time": "2026-01-16T01:35:35.970Z",
+      "sunAltitude": 2.6470258737014993,
+      "sunAzimuth": -66.97325489634189,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 5.489197771418814
+    },
+    {
+      "hour": 7,
+      "time": "2026-01-16T01:50:35.970Z",
+      "sunAltitude": 5.9254183881874045,
+      "sunAzimuth": -65.74696498975119,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 35.141324233858064
+    },
+    {
+      "hour": 7,
+      "time": "2026-01-16T02:05:35.970Z",
+      "sunAltitude": 9.17121220963135,
+      "sunAzimuth": -64.42846022579118,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 81.25716256148817
+    },
+    {
+      "hour": 7,
+      "time": "2026-01-16T02:20:35.970Z",
+      "sunAltitude": 12.380135547320895,
+      "sunAzimuth": -63.00811812691157,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 134.44698195920654
+    },
+    {
+      "hour": 8,
+      "time": "2026-01-16T02:35:35.970Z",
+      "sunAltitude": 15.547246335046205,
+      "sunAzimuth": -61.474898122152226,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 190.317704361221
+    },
+    {
+      "hour": 8,
+      "time": "2026-01-16T02:50:35.970Z",
+      "sunAltitude": 18.666808472433367,
+      "sunAzimuth": -59.816184282996446,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 246.71865927379352
+    },
+    {
+      "hour": 8,
+      "time": "2026-01-16T03:05:35.970Z",
+      "sunAltitude": 21.732143693019555,
+      "sunAzimuth": -58.0176249708721,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 302.44245679362706
+    },
+    {
+      "hour": 8,
+      "time": "2026-01-16T03:20:35.970Z",
+      "sunAltitude": 24.73545740660746,
+      "sunAzimuth": -56.06298388317563,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 356.7168932803786
+    },
+    {
+      "hour": 9,
+      "time": "2026-01-16T03:35:35.970Z",
+      "sunAltitude": 27.667637484540922,
+      "sunAzimuth": -53.93402636409385,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 408.99249098324685
+    },
+    {
+      "hour": 9,
+      "time": "2026-01-16T03:50:35.970Z",
+      "sunAltitude": 30.518023182874952,
+      "sunAzimuth": -51.610481659356815,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 458.8456063244933
+    },
+    {
+      "hour": 9,
+      "time": "2026-01-16T04:05:35.970Z",
+      "sunAltitude": 33.27414885371879,
+      "sunAzimuth": -49.070140449080995,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 505.9307612862276
+    },
+    {
+      "hour": 9,
+      "time": "2026-01-16T04:20:35.970Z",
+      "sunAltitude": 35.9214733619488,
+      "sunAzimuth": -46.28917400880379,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 549.955720856326
+    },
+    {
+      "hour": 10,
+      "time": "2026-01-16T04:35:35.970Z",
+      "sunAltitude": 38.443113414572075,
+      "sunAzimuth": -43.24279781175188,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 590.6678002212666
+    },
+    {
+      "hour": 10,
+      "time": "2026-01-16T04:50:35.970Z",
+      "sunAltitude": 40.81961874581594,
+      "sunAzimuth": -39.90643401870211,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 627.846077752474
+    },
+    {
+      "hour": 10,
+      "time": "2026-01-16T05:05:35.970Z",
+      "sunAltitude": 43.028849298386724,
+      "sunAzimuth": -36.25754775036854,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 661.2968732540619
+    },
+    {
+      "hour": 10,
+      "time": "2026-01-16T05:20:35.970Z",
+      "sunAltitude": 45.046039205326075,
+      "sunAzimuth": -32.278317604447935,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 690.851067281785
+    },
+    {
+      "hour": 11,
+      "time": "2026-01-16T05:35:35.970Z",
+      "sunAltitude": 46.84416253971089,
+      "sunAzimuth": -27.959197605982457,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 716.3625171867583
+    },
+    {
+      "hour": 11,
+      "time": "2026-01-16T05:50:35.970Z",
+      "sunAltitude": 48.394728190483434,
+      "sunAzimuth": -23.303196460738448,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 737.7071403910172
+    },
+    {
+      "hour": 11,
+      "time": "2026-01-16T06:05:35.970Z",
+      "sunAltitude": 49.66910586768222,
+      "sunAzimuth": -18.33032055261628,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 754.7823816973125
+    },
+    {
+      "hour": 11,
+      "time": "2026-01-16T06:20:35.970Z",
+      "sunAltitude": 50.64040361787796,
+      "sunAzimuth": -13.08114609346651,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 767.5069225921379
+    },
+    {
+      "hour": 12,
+      "time": "2026-01-16T06:35:35.970Z",
+      "sunAltitude": 51.28575983422112,
+      "sunAzimuth": -7.618125900918993,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 775.8205370689241
+    },
+    {
+      "hour": 12,
+      "time": "2026-01-16T06:50:35.970Z",
+      "sunAltitude": 51.58871223363842,
+      "sunAzimuth": -2.023336453771278,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 779.6840185964895
+    },
+    {
+      "hour": 12,
+      "time": "2026-01-16T07:05:35.970Z",
+      "sunAltitude": 51.54115136548127,
+      "sunAzimuth": 3.607829580750727,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 779.0791519895942
+    },
+    {
+      "hour": 12,
+      "time": "2026-01-16T07:20:35.970Z",
+      "sunAltitude": 51.144360613311065,
+      "sunAzimuth": 9.176139043227698,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 774.0087058601902
+    },
+    {
+      "hour": 13,
+      "time": "2026-01-16T07:35:35.970Z",
+      "sunAltitude": 50.40884776997104,
+      "sunAzimuth": 14.588963610309152,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 764.4964334371217
+    },
+    {
+      "hour": 13,
+      "time": "2026-01-16T07:50:35.970Z",
+      "sunAltitude": 49.35301768454982,
+      "sunAzimuth": 19.769070179841957,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 750.5870891833729
+    },
+    {
+      "hour": 13,
+      "time": "2026-01-16T08:05:35.970Z",
+      "sunAltitude": 48.001053904238645,
+      "sunAzimuth": 24.659860059232695,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 732.346465095535
+    },
+    {
+      "hour": 13,
+      "time": "2026-01-16T08:20:35.970Z",
+      "sunAltitude": 46.38052654911163,
+      "sunAzimuth": 29.226564259146528,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 709.8614796629022
+    },
+    {
+      "hour": 14,
+      "time": "2026-01-16T08:35:35.970Z",
+      "sunAltitude": 44.52018800234165,
+      "sunAzimuth": 33.45418017632691,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 683.2403632198786
+    },
+    {
+      "hour": 14,
+      "time": "2026-01-16T08:50:35.970Z",
+      "sunAltitude": 42.44823788101244,
+      "sunAzimuth": 37.34353879680909,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 652.6129961547233
+    },
+    {
+      "hour": 14,
+      "time": "2026-01-16T09:05:35.970Z",
+      "sunAltitude": 40.1911472066985,
+      "sunAzimuth": 40.906823595279114,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 618.1315298860821
+    },
+    {
+      "hour": 14,
+      "time": "2026-01-16T09:20:35.970Z",
+      "sunAltitude": 37.77299208687954,
+      "sunAzimuth": 44.1634478222896,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 579.9714660622803
+    },
+    {
+      "hour": 15,
+      "time": "2026-01-16T09:35:35.970Z",
+      "sunAltitude": 35.21518087726357,
+      "sunAzimuth": 47.13673024397888,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 538.3334743379248
+    },
+    {
+      "hour": 15,
+      "time": "2026-01-16T09:50:35.970Z",
+      "sunAltitude": 32.53645095040065,
+      "sunAzimuth": 49.85146134937919,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 493.4464843235376
+    },
+    {
+      "hour": 15,
+      "time": "2026-01-16T10:05:35.970Z",
+      "sunAltitude": 29.753027136898776,
+      "sunAzimuth": 52.33226576320919,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 445.57293783249713
+    },
+    {
+      "hour": 15,
+      "time": "2026-01-16T10:20:35.970Z",
+      "sunAltitude": 26.87886150851724,
+      "sunAzimuth": 54.60259266845883,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 395.0178312558916
+    },
+    {
+      "hour": 16,
+      "time": "2026-01-16T10:35:35.970Z",
+      "sunAltitude": 23.92590413687042,
+      "sunAzimuth": 56.68415893390821,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 342.1447797273463
+    },
+    {
+      "hour": 16,
+      "time": "2026-01-16T10:50:35.970Z",
+      "sunAltitude": 20.904372133495144,
+      "sunAzimuth": 58.59669983719928,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 287.4056319840942
+    },
+    {
+      "hour": 16,
+      "time": "2026-01-16T11:05:35.970Z",
+      "sunAltitude": 17.8229985506631,
+      "sunAzimuth": 60.35791649562876,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 231.39792730691784
+    },
+    {
+      "hour": 16,
+      "time": "2026-01-16T11:20:35.970Z",
+      "sunAltitude": 14.689255789623775,
+      "sunAzimuth": 61.98353901816718,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 174.98401212425284
+    },
+    {
+      "hour": 17,
+      "time": "2026-01-16T11:35:35.970Z",
+      "sunAltitude": 11.509550257537377,
+      "sunAzimuth": 63.48745274151904,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 119.55837333169703
+    },
+    {
+      "hour": 17,
+      "time": "2026-01-16T11:50:35.970Z",
+      "sunAltitude": 8.289387943305176,
+      "sunAzimuth": 64.88185328568198,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 67.70190228611696
+    },
+    {
+      "hour": 17,
+      "time": "2026-01-16T12:05:35.970Z",
+      "sunAltitude": 5.033515936635737,
+      "sunAzimuth": 66.17740749181445,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 24.853325461873247
+    },
+    {
+      "hour": 17,
+      "time": "2026-01-16T12:20:35.970Z",
+      "sunAltitude": 1.7460417635937782,
+      "sunAzimuth": 67.38340809023602,
+      "inShadow": false,
+      "shadowPercent": 0,
+      "irradiance": 1.9513506540756551
+    }
+  ],
+  "scenario": {
+    "name": "Default",
+    "window": {
+      "state": "closed",
+      "ventilationFactor": 0
+    },
+    "glazing": {
+      "type": "double",
+      "solarTransmittance": 0.76
+    },
+    "shading": {
+      "interior": "none",
+      "exterior": "none",
+      "reductionFactor": 1
+    }
+  }
+}

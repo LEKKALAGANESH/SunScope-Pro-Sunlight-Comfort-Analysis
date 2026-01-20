@@ -52,7 +52,8 @@ export function createBuildingMesh(
     const lowShape = new THREE.Shape();
     points.forEach((point, index) => {
       const x = point.x - centerX;
-      const z = point.y - centerZ; // rotateX(-PI/2) will flip Y to -Z, so no manual negation needed
+      // Keep original shape coordinates - position rotation in Scene3D handles orientation
+      const z = point.y - centerZ;
       if (index === 0) lowShape.moveTo(x, z);
       else lowShape.lineTo(x, z);
     });
@@ -123,7 +124,8 @@ export function createBuildingMesh(
       const floorShape = new THREE.Shape();
       points.forEach((point, index) => {
         const x = point.x - centerX;
-        const z = point.y - centerZ; // rotateX(-PI/2) will flip Y to -Z
+        // Keep original shape coordinates
+        const z = point.y - centerZ;
         if (index === 0) floorShape.moveTo(x, z);
         else floorShape.lineTo(x, z);
       });
@@ -166,7 +168,8 @@ export function createBuildingMesh(
     const roofShape = new THREE.Shape();
     points.forEach((point, index) => {
       const x = point.x - centerX;
-      const z = point.y - centerZ; // rotateX(-PI/2) will flip Y to -Z
+      // Keep original shape coordinates
+      const z = point.y - centerZ;
       if (index === 0) roofShape.moveTo(x, z);
       else roofShape.lineTo(x, z);
     });
@@ -193,7 +196,8 @@ export function createBuildingMesh(
       const floorShape = new THREE.Shape();
       points.forEach((point, index) => {
         const x = point.x - centerX;
-        const z = point.y - centerZ; // rotateX(-PI/2) will flip Y to -Z
+        // Keep original shape coordinates
+        const z = point.y - centerZ;
         if (index === 0) floorShape.moveTo(x, z);
         else floorShape.lineTo(x, z);
       });
@@ -220,9 +224,11 @@ export function createBuildingMesh(
       floorMesh.receiveShadow = true;
       highGroup.add(floorMesh);
 
-      // Add floor divider line (Z negated to match post-rotation shape coordinates)
+      // Add floor divider line
+      // IMPORTANT: Z-coordinate must match the shape extrusion (no negative sign)
+      // Previously had -(p.y - centerZ) which caused floor lines to appear on wrong side
       const outlinePoints = points.map(
-        (p) => new THREE.Vector3(p.x - centerX, floorBottom + floorHeight, -(p.y - centerZ))
+        (p) => new THREE.Vector3(p.x - centerX, floorBottom + floorHeight, (p.y - centerZ))
       );
       outlinePoints.push(outlinePoints[0]);
       const outlineGeo = new THREE.BufferGeometry().setFromPoints(outlinePoints);
@@ -281,8 +287,95 @@ export function createBuildingMesh(
   lod.addLevel(medGroup, 1000);    // 1000-3000: Polygon shape without floor detail
   lod.addLevel(lowGroup, 3000);    // 3000+: Simple box (only for very far distances)
 
-  lod.position.set(centerX, 0, -centerZ); // Negate Z to match flipped coordinates
+  // Position building: X = image X, Z = image Y (south = +Z, north = -Z)
+  lod.position.set(centerX, 0, centerZ);
   lod.userData = { buildingId: building.id };
 
+  // Add building name label above the building
+  const labelGroup = createBuildingLabel(building.name, building.totalHeight, buildingColor);
+  lod.add(labelGroup);
+
   return lod;
+}
+
+/**
+ * Create a floating label above the building showing its name
+ */
+function createBuildingLabel(name: string, buildingHeight: number, buildingColor: THREE.Color): THREE.Group {
+  const group = new THREE.Group();
+
+  // Create canvas for the label
+  const canvas = document.createElement("canvas");
+  const padding = 12;
+  const fontSize = 18;
+  const maxWidth = 180;
+
+  // Measure text to size canvas appropriately
+  const tempCtx = canvas.getContext("2d")!;
+  tempCtx.font = `bold ${fontSize}px Arial`;
+  const textMetrics = tempCtx.measureText(name);
+  const textWidth = Math.min(textMetrics.width, maxWidth);
+
+  canvas.width = textWidth + padding * 2;
+  canvas.height = fontSize + padding * 2;
+
+  const ctx = canvas.getContext("2d")!;
+
+  // Background with building color
+  const hexColor = "#" + buildingColor.getHexString();
+  ctx.fillStyle = hexColor;
+  ctx.beginPath();
+  ctx.roundRect(0, 0, canvas.width, canvas.height, 6);
+  ctx.fill();
+
+  // Border
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Text (white for visibility)
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `bold ${fontSize}px Arial`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+  ctx.shadowBlur = 2;
+  ctx.shadowOffsetX = 1;
+  ctx.shadowOffsetY = 1;
+  ctx.fillText(name.length > 15 ? name.substring(0, 15) + "..." : name, canvas.width / 2, canvas.height / 2);
+
+  // Create sprite
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  const material = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: false, // Always visible
+  });
+  const sprite = new THREE.Sprite(material);
+
+  // Position above the building
+  sprite.position.set(0, buildingHeight + 8, 0);
+
+  // Scale based on canvas aspect ratio
+  const spriteWidth = canvas.width / 8;
+  const spriteHeight = canvas.height / 8;
+  sprite.scale.set(spriteWidth, spriteHeight, 1);
+
+  group.add(sprite);
+
+  // Add a thin line from building to label
+  const lineGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, buildingHeight, 0),
+    new THREE.Vector3(0, buildingHeight + 5, 0),
+  ]);
+  const lineMat = new THREE.LineBasicMaterial({
+    color: buildingColor,
+    transparent: true,
+    opacity: 0.6,
+  });
+  const line = new THREE.Line(lineGeo, lineMat);
+  group.add(line);
+
+  return group;
 }

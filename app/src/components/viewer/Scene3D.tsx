@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useImperativeHandle, forwardRef } from "react";
 import SunCalc from "suncalc";
 import * as THREE from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { useProjectStore } from "../../store/projectStore";
 import type {
   Building,
@@ -10,7 +9,15 @@ import type {
   Point2D,
   Vector3,
 } from "../../types";
-import { createBuildingMesh } from "./utils/buildingMesh";
+// NEW: Clean geometry library (REPLACES old buildingMesh.ts)
+import {
+  transformFootprint,
+  createRobustBuildingMesh,
+  validateFootprint,
+  type SiteConfig as GeometrySiteConfig,
+} from "../../lib/geometry";
+// Phase 1: Enhanced camera controls
+import { CameraController, type SceneBounds } from "./utils/cameraController";
 
 interface SunPositionInfo {
   altitude: number; // degrees
@@ -44,6 +51,10 @@ interface Scene3DProps {
     floorInfo?: FloorHoverInfo | null
   ) => void;
   onMeasurementClick?: (point: Vector3) => void;
+  /** Callback when camera azimuth changes (for compass) */
+  onCameraChange?: (azimuth: number) => void;
+  /** Phase 5: Callback when building meshes are updated */
+  onBuildingMeshesUpdate?: (meshes: Map<string, THREE.Object3D>) => void;
   showNorthArrow?: boolean;
   showSunRay?: boolean;
   showScaleBar?: boolean;
@@ -55,10 +66,47 @@ interface Scene3DProps {
   pendingMeasurementPoint?: Vector3 | null;
 }
 
+/**
+ * Exposed methods for external camera control (Phase 1 & 3)
+ */
+export interface Scene3DHandle {
+  /** Zoom in by one step */
+  zoomIn: () => void;
+  /** Zoom out by one step */
+  zoomOut: () => void;
+  /** Reset camera to home/initial view */
+  resetView: () => void;
+  /** Fit all buildings in view */
+  fitToView: () => void;
+  /** Align camera to face north */
+  alignToNorth: () => void;
+  /** Get current camera azimuth angle in degrees */
+  getCameraAzimuth: () => number;
+  /** Get scene bounds */
+  getSceneBounds: () => SceneBounds;
+  /** Phase 3: Set camera to a view preset */
+  setViewPreset: (preset: 'aerial' | 'street' | 'top' | 'oblique') => void;
+  /** Phase 3: Focus on a specific building */
+  focusOnBuilding: (buildingId: string) => void;
+  /** Phase 3: Set hovered building for outline effect */
+  setHoveredBuilding: (buildingId: string | null) => void;
+  /** Phase 3: Set selected building for outline effect */
+  setSelectedBuilding: (buildingId: string | null) => void;
+}
+
 // Calculate bounding box for all buildings
+/**
+ * Calculate scene bounds based on TRANSFORMED building positions
+ *
+ * IMPORTANT: This must use the same transformation as building positioning
+ * to ensure camera centers on actual building locations
+ */
 function calculateSceneBounds(
   buildings: Building[],
-  scale: number
+  scale: number,
+  northAngle: number,
+  imageWidth: number,
+  imageHeight: number
 ): {
   center: Point2D;
   size: number;
@@ -68,44 +116,59 @@ function calculateSceneBounds(
     return { center: { x: 0, y: 0 }, size: 200, maxHeight: 50 };
   }
 
+  // Site config for transformation
+  const siteConfig: GeometrySiteConfig = {
+    imageWidth,
+    imageHeight,
+    scale,
+    northAngle,
+  };
+
   let minX = Infinity,
     maxX = -Infinity;
-  let minY = Infinity,
-    maxY = -Infinity;
+  let minZ = Infinity,
+    maxZ = -Infinity;
   let maxHeight = 0;
 
+  // Transform each building and calculate bounds from world coordinates
   buildings.forEach((building) => {
-    building.footprint.forEach((p) => {
-      const x = p.x * scale;
-      const y = p.y * scale;
-      minX = Math.min(minX, x);
-      maxX = Math.max(maxX, x);
-      minY = Math.min(minY, y);
-      maxY = Math.max(maxY, y);
-    });
-    maxHeight = Math.max(maxHeight, building.totalHeight);
+    try {
+      // Transform footprint using same pipeline as mesh creation
+      const result = transformFootprint(building.footprint, siteConfig);
+      const { centroid } = result.data;
+
+      // Update bounds based on centroid position
+      minX = Math.min(minX, centroid.x);
+      maxX = Math.max(maxX, centroid.x);
+      minZ = Math.min(minZ, centroid.y); // centroid.y is Z-coordinate
+      maxZ = Math.max(maxZ, centroid.y);
+
+      maxHeight = Math.max(maxHeight, building.totalHeight);
+    } catch (error) {
+      console.error(`Failed to transform building ${building.name} for bounds:`, error);
+    }
   });
 
   const centerX = (minX + maxX) / 2;
-  const centerY = (minY + maxY) / 2;
+  const centerZ = (minZ + maxZ) / 2;
   const sizeX = maxX - minX;
-  const sizeY = maxY - minY;
-  // Reduced multiplier from 1.5 to 1.2 for more realistic building spacing
-  const size = Math.max(sizeX, sizeY, 100) * 1.2;
+  const sizeZ = maxZ - minZ;
+  const size = Math.max(sizeX, sizeZ, 100) * 1.5; // Margin for camera
 
   return {
-    // Negate Y to match 3D coordinate system (canvas Y down → 3D Z flipped)
-    center: { x: centerX, y: -centerY },
+    center: { x: centerX, y: centerZ }, // .y represents Z-coordinate
     size,
     maxHeight: Math.max(maxHeight, 20),
   };
 }
 
-export function Scene3D({
+export const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(function Scene3D({
   onSceneReady,
   onSunPositionChange,
   onBuildingHover,
   onMeasurementClick,
+  onCameraChange,
+  onBuildingMeshesUpdate,
   showNorthArrow = false,
   showSunRay = true,
   showScaleBar = true,
@@ -115,7 +178,7 @@ export function Scene3D({
   measurements = [],
   measurementMode = false,
   pendingMeasurementPoint,
-}: Scene3DProps) {
+}: Scene3DProps, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -124,8 +187,11 @@ export function Scene3D({
     new THREE.Plane(new THREE.Vector3(0, -1, 0), 0)
   );
   const sectionHelperRef = useRef<THREE.PlaneHelper | null>(null);
-  const controlsRef = useRef<OrbitControls | null>(null);
+  // Phase 1: Enhanced camera controller
+  const cameraControllerRef = useRef<CameraController | null>(null);
   const sunLightRef = useRef<THREE.DirectionalLight | null>(null);
+  // Store scene bounds for external access
+  const sceneBoundsRef = useRef<SceneBounds>({ center: { x: 0, y: 0 }, size: 200, maxHeight: 50 });
   const groundRef = useRef<THREE.Mesh | null>(null);
   const gridRef = useRef<THREE.GridHelper | null>(null);
   const buildingMeshesRef = useRef<Map<string, THREE.Object3D>>(new Map());
@@ -162,11 +228,104 @@ export function Scene3D({
   const { project, currentTime } = useProjectStore();
   const { buildings, site, analysis } = project;
 
-  // Calculate scene bounds
-  const sceneBounds = useMemo(
-    () => calculateSceneBounds(buildings, site.scale),
-    [buildings, site.scale]
-  );
+  // Calculate scene bounds based on transformed building positions
+  const sceneBounds = useMemo(() => {
+    if (!project.image?.width || !project.image?.height) {
+      // Fallback if image not loaded yet
+      return { center: { x: 0, y: 0 }, size: 200, maxHeight: 50 };
+    }
+
+    return calculateSceneBounds(
+      buildings,
+      site.scale,
+      site.northAngle,
+      project.image.width,
+      project.image.height
+    );
+  }, [buildings, site.scale, site.northAngle, project.image]);
+
+  // Update bounds ref when sceneBounds changes
+  useEffect(() => {
+    sceneBoundsRef.current = sceneBounds;
+  }, [sceneBounds]);
+
+  // Phase 1 & 3: Expose camera control methods via ref
+  useImperativeHandle(ref, () => ({
+    zoomIn: () => {
+      cameraControllerRef.current?.zoomIn();
+    },
+    zoomOut: () => {
+      cameraControllerRef.current?.zoomOut();
+    },
+    resetView: () => {
+      cameraControllerRef.current?.resetToHome(true);
+    },
+    fitToView: () => {
+      cameraControllerRef.current?.fitToView(sceneBoundsRef.current, 1.5, true);
+    },
+    alignToNorth: () => {
+      cameraControllerRef.current?.alignToNorth(true);
+    },
+    getCameraAzimuth: () => {
+      if (!cameraRef.current || !cameraControllerRef.current) return 0;
+      const controls = cameraControllerRef.current.getControls();
+      const camera = cameraRef.current;
+      // Calculate azimuth from camera position relative to target
+      const dx = camera.position.x - controls.target.x;
+      const dz = camera.position.z - controls.target.z;
+      // Convert to degrees, with 0 = North (negative Z)
+      const azimuth = Math.atan2(dx, -dz) * (180 / Math.PI);
+      return azimuth;
+    },
+    getSceneBounds: () => sceneBoundsRef.current,
+    // Phase 3: View presets
+    setViewPreset: (preset: 'aerial' | 'street' | 'top' | 'oblique') => {
+      cameraControllerRef.current?.setViewPreset(preset, sceneBoundsRef.current, true);
+    },
+    // Phase 3: Focus on building
+    focusOnBuilding: (buildingId: string) => {
+      const mesh = buildingMeshesRef.current.get(buildingId);
+      if (mesh && cameraControllerRef.current) {
+        const box = new THREE.Box3().setFromObject(mesh);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+        const distance = Math.max(size.x, size.y, size.z) * 2;
+        cameraControllerRef.current.focusOn(center, distance, true);
+      }
+    },
+    // Phase 3: Set hovered building (for outline effect)
+    setHoveredBuilding: (buildingId: string | null) => {
+      buildingMeshesRef.current.forEach((mesh, id) => {
+        mesh.traverse((child) => {
+          if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+            if (id === buildingId) {
+              child.material.emissive.setHex(0x4fc3f7);
+              child.material.emissiveIntensity = 0.15;
+            } else if (id !== analysis.selectedBuildingId) {
+              child.material.emissive.setHex(0x000000);
+              child.material.emissiveIntensity = 0;
+            }
+          }
+        });
+      });
+    },
+    // Phase 3: Set selected building (for outline effect)
+    setSelectedBuilding: (buildingId: string | null) => {
+      buildingMeshesRef.current.forEach((mesh, id) => {
+        mesh.traverse((child) => {
+          if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+            if (id === buildingId) {
+              child.material.emissive.setHex(0xffc107);
+              child.material.emissiveIntensity = 0.2;
+            } else {
+              child.material.emissive.setHex(0x000000);
+              child.material.emissiveIntensity = 0;
+            }
+          }
+        });
+      });
+    },
+  }), [analysis.selectedBuildingId]);
 
   // Initialize Three.js scene
   useEffect(() => {
@@ -200,14 +359,22 @@ export function Scene3D({
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // Controls
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.maxPolarAngle = Math.PI / 2 - 0.05;
-    controls.minDistance = 10;
-    controls.maxDistance = 10000;
-    controlsRef.current = controls;
+    // Phase 1: Enhanced Camera Controller (replaces basic OrbitControls)
+    const cameraController = new CameraController(camera, renderer.domElement, {
+      enableDamping: true,
+      dampingFactor: 0.08,  // Slightly more responsive than before
+      minDistance: 10,
+      maxDistance: 10000,
+      maxPolarAngle: Math.PI / 2 - 0.05,  // Prevent underground view
+      minPolarAngle: 0.1,  // Prevent pure top-down view
+      zoomToCursor: true,  // New: Zoom toward cursor position
+      zoomSpeed: 1.2,
+      rotateSpeed: 0.8,
+      panSpeed: 1.0,
+      enableKeyboard: true,  // New: Keyboard navigation
+    });
+    cameraControllerRef.current = cameraController;
+    const controls = cameraController.getControls();
 
     // Ground plane - will be sized based on scene (large initial size)
     const groundGeo = new THREE.PlaneGeometry(10000, 10000);
@@ -227,6 +394,15 @@ export function Scene3D({
     gridHelper.position.y = 0.1;
     scene.add(gridHelper);
     gridRef.current = gridHelper;
+
+    // DEBUG: Add origin marker (red sphere at world origin) to verify coordinate system
+    const originMarkerGeo = new THREE.SphereGeometry(3, 16, 16);
+    const originMarkerMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    const originMarker = new THREE.Mesh(originMarkerGeo, originMarkerMat);
+    originMarker.position.set(0, 3, 0); // Slightly above ground
+    originMarker.name = 'OriginMarker';
+    scene.add(originMarker);
+    console.log('[Scene3D] DEBUG: Added red origin marker at (0, 3, 0) - this represents image center');
 
     // Measurement visualization group
     const measurementGroup = new THREE.Group();
@@ -403,11 +579,23 @@ export function Scene3D({
 
     container.addEventListener("click", handleClick);
 
-    // Animation loop
+    // Animation loop with camera change tracking
+    let lastAzimuth = 0;
     const animate = () => {
       animationRef.current = requestAnimationFrame(animate);
-      controls.update();
+      cameraController.update();
       renderer.render(scene, camera);
+
+      // Track camera azimuth changes for compass (Phase 1)
+      if (onCameraChange) {
+        const dx = camera.position.x - controls.target.x;
+        const dz = camera.position.z - controls.target.z;
+        const azimuth = Math.atan2(dx, -dz) * (180 / Math.PI);
+        if (Math.abs(azimuth - lastAzimuth) > 0.5) {
+          lastAzimuth = azimuth;
+          onCameraChange(azimuth);
+        }
+      }
     };
     animate();
 
@@ -432,18 +620,22 @@ export function Scene3D({
       container.removeEventListener("mousemove", handleMouseMove);
       container.removeEventListener("click", handleClick);
       cancelAnimationFrame(animationRef.current);
+      cameraController.dispose();  // Phase 1: Dispose camera controller
       renderer.dispose();
       container.removeChild(renderer.domElement);
     };
-  }, []);
+  }, [onCameraChange]);
 
   // Update camera, ground, and shadow camera when scene bounds change
   useEffect(() => {
-    if (!cameraRef.current || !controlsRef.current || !sunLightRef.current)
+    if (!cameraRef.current || !cameraControllerRef.current || !sunLightRef.current)
       return;
 
     const { center, size, maxHeight } = sceneBounds;
     sceneCenterRef.current = center;
+
+    // Get controls from camera controller
+    const controls = cameraControllerRef.current.getControls();
 
     // Position camera to see all buildings
     const cameraDistance = size * 1.5;
@@ -455,8 +647,28 @@ export function Scene3D({
     );
 
     // Look at the center of the scene
-    controlsRef.current.target.set(center.x, maxHeight / 2, center.y);
-    controlsRef.current.update();
+    controls.target.set(center.x, maxHeight / 2, center.y);
+    controls.update();
+
+    // Phase 1: Set this as the home view for reset functionality
+    cameraControllerRef.current.setHomeView({
+      position: new THREE.Vector3(
+        center.x + cameraDistance,
+        cameraHeight,
+        center.y + cameraDistance
+      ),
+      target: new THREE.Vector3(center.x, maxHeight / 2, center.y),
+    });
+
+    // Debug logging
+    console.log('📷 Camera Update:');
+    console.log(`   Scene center: (${center.x.toFixed(2)}, ${center.y.toFixed(2)})`);
+    console.log(`   Scene size: ${size.toFixed(2)}m`);
+    console.log(`   Max height: ${maxHeight.toFixed(2)}m`);
+    console.log(`   Camera distance: ${cameraDistance.toFixed(2)}m`);
+    console.log(`   Camera height: ${cameraHeight.toFixed(2)}m`);
+    console.log(`   Camera position: (${cameraRef.current.position.x.toFixed(2)}, ${cameraRef.current.position.y.toFixed(2)}, ${cameraRef.current.position.z.toFixed(2)})`);
+    console.log(`   Camera target: (${controls.target.x.toFixed(2)}, ${controls.target.y.toFixed(2)}, ${controls.target.z.toFixed(2)})`);
 
     // Update shadow camera frustum to cover all buildings with generous margin
     const shadowSize = Math.max(size * 2, 1000);
@@ -472,45 +684,93 @@ export function Scene3D({
     sunLightRef.current.target.position.set(center.x, 0, center.y);
     sunLightRef.current.target.updateMatrixWorld();
 
-    // Update ground position
+    // Calculate site plan size in meters (based on image dimensions)
+    // This ensures grid matches the site plan layout
+    const siteWidth = project.image?.width ? project.image.width * site.scale : size * 2;
+    const siteHeight = project.image?.height ? project.image.height * site.scale : size * 2;
+    const siteSize = Math.max(siteWidth, siteHeight);
+
+    // Update ground plane - centered at WORLD ORIGIN (image center)
     if (groundRef.current) {
-      groundRef.current.position.set(center.x, 0, center.y);
+      // Ground stays at origin (0, 0) to match site plan center
+      groundRef.current.position.set(0, 0, 0);
+
+      // Resize ground to cover site plan area
+      const groundSize = Math.max(siteSize * 1.2, 500);
+      groundRef.current.scale.set(groundSize / 10000, groundSize / 10000, 1);
     }
 
-    // Update grid position
-    if (gridRef.current) {
-      gridRef.current.position.set(center.x, 0.1, center.y);
+    // Update grid helper - centered at WORLD ORIGIN to match site plan
+    if (gridRef.current && sceneRef.current) {
+      // Remove old grid
+      sceneRef.current.remove(gridRef.current);
+      gridRef.current.geometry.dispose();
+      if (Array.isArray(gridRef.current.material)) {
+        gridRef.current.material.forEach(m => m.dispose());
+      } else {
+        gridRef.current.material.dispose();
+      }
+
+      // Grid size based on site plan dimensions
+      const gridSize = Math.max(siteSize * 1.2, 300);
+
+      // Calculate appropriate grid division spacing based on scene size
+      let divisionSpacing: number;
+      if (gridSize < 100) {
+        divisionSpacing = 5; // 5m divisions for small scenes
+      } else if (gridSize < 500) {
+        divisionSpacing = 10; // 10m divisions for medium scenes
+      } else if (gridSize < 1000) {
+        divisionSpacing = 20; // 20m divisions for large scenes
+      } else {
+        divisionSpacing = 50; // 50m divisions for very large scenes
+      }
+
+      const divisions = Math.floor(gridSize / divisionSpacing);
+
+      // Create new grid centered at ORIGIN (matches site plan center)
+      const newGrid = new THREE.GridHelper(gridSize, divisions, 0x888888, 0x666666);
+      newGrid.position.set(0, 0.1, 0); // At world origin
+      sceneRef.current.add(newGrid);
+      gridRef.current = newGrid;
+
+      console.log(`[Scene3D] Grid updated: siteSize=${siteSize.toFixed(0)}m, gridSize=${gridSize.toFixed(0)}m, divisions=${divisions}`);
+      console.log(`[Scene3D] Buildings center: (${center.x.toFixed(2)}, ${center.y.toFixed(2)})`);
     }
 
-    // Update north arrow position - place at corner of scene
+    // Update north arrow position - place at corner of scene (relative to ORIGIN)
     if (northArrowRef.current) {
       const arrowSize = Math.max(size * 0.15, 30);
+      // Position relative to origin (0, 0) to match grid
       northArrowRef.current.position.set(
-        center.x - size * 0.45,
+        -size * 0.45,  // West side
         0.5,
-        center.y - size * 0.45
+        -size * 0.45   // North side
       );
       northArrowRef.current.scale.setScalar(arrowSize / 20); // Normalize to base size
     }
 
-    // Update scale bar - place at opposite corner from north arrow
+    // Update scale bar - place at opposite corner from north arrow (relative to ORIGIN)
     if (scaleBarRef.current) {
-      updateScaleBar(scaleBarRef.current, center, size, site.scale);
+      // Use origin (0, 0) not building center, so scale bar aligns with grid
+      updateScaleBar(scaleBarRef.current, { x: 0, y: 0 }, size, site.scale);
     }
 
-    // Update cardinal directions
+    // Update cardinal directions - CENTER AT ORIGIN to match grid
     if (cardinalDirectionsRef.current) {
-      updateCardinalDirections(cardinalDirectionsRef.current, center, size);
+      // Use origin (0, 0) not building center, so directions align with grid
+      updateCardinalDirections(cardinalDirectionsRef.current, { x: 0, y: 0 }, size);
     }
-  }, [sceneBounds, site.scale]);
+  }, [sceneBounds, site.scale, project.image]);
 
   // Update sun path when date, time, or location changes
   useEffect(() => {
     if (!sunPathRef.current || !showSunPath) return;
 
+    // Center sun path at ORIGIN (0, 0) to align with grid
     updateSunPath(
       sunPathRef.current,
-      sceneCenterRef.current,
+      { x: 0, y: 0 }, // Use origin instead of sceneCenterRef.current
       sceneBounds.size,
       site.location.latitude,
       site.location.longitude,
@@ -526,13 +786,51 @@ export function Scene3D({
     showSunPath,
   ]);
 
-  // Update buildings
+  // Update buildings - NEW CLEAN PROJECTION PIPELINE
   useEffect(() => {
     if (!sceneRef.current) return;
 
     const scene = sceneRef.current;
     const existingGroups = buildingMeshesRef.current;
     const newGroups = new Map<string, THREE.Object3D>();
+
+    // Diagnostic logging
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🏗️ Building Creation Pipeline Starting...');
+    console.log(`   Buildings in store: ${buildings.length}`);
+    console.log(`   Image loaded: ${project.image ? 'Yes' : 'No'}`);
+    if (project.image) {
+      console.log(`   Image dimensions: ${project.image.width}x${project.image.height} pixels`);
+      console.log(`   Image center: (${project.image.width/2}, ${project.image.height/2}) px`);
+    }
+    console.log(`   Scale: ${site.scale} m/px`);
+    console.log(`   North angle: ${site.northAngle}°`);
+    if (project.image) {
+      const siteWidthMeters = project.image.width * site.scale;
+      const siteHeightMeters = project.image.height * site.scale;
+      console.log(`   Site dimensions: ${siteWidthMeters.toFixed(1)}m x ${siteHeightMeters.toFixed(1)}m`);
+    }
+
+    // Validate image dimensions are available
+    if (!project.image || !project.image.width || !project.image.height) {
+      console.error('[Scene3D] ❌ Cannot create buildings - image dimensions not available');
+      console.error('   This happens when: 1) No image uploaded, 2) Page refreshed (image not persisted), 3) Sample project not fully loaded');
+      return;
+    }
+
+    if (buildings.length === 0) {
+      console.warn('[Scene3D] ⚠️ No buildings to render - buildings array is empty');
+      console.warn('   Import buildings from the detection preview or draw them in the editor');
+      return;
+    }
+
+    // Construct site configuration for geometry library
+    const siteConfig: GeometrySiteConfig = {
+      imageWidth: project.image.width,
+      imageHeight: project.image.height,
+      scale: site.scale,
+      northAngle: site.northAngle,
+    };
 
     // Remove buildings that no longer exist
     existingGroups.forEach((obj, id) => {
@@ -552,14 +850,13 @@ export function Scene3D({
       }
     });
 
-    // Add or update buildings
+    // Process each building through NEW projection pipeline
     buildings.forEach((building) => {
-      let buildingObj = existingGroups.get(building.id);
-
-      if (buildingObj) {
-        // Remove existing
-        scene.remove(buildingObj);
-        buildingObj.traverse((child) => {
+      // Remove existing mesh if present
+      const existingMesh = existingGroups.get(building.id);
+      if (existingMesh) {
+        scene.remove(existingMesh);
+        existingMesh.traverse((child) => {
           if (child instanceof THREE.Mesh) {
             child.geometry.dispose();
             if (Array.isArray(child.material)) {
@@ -571,37 +868,153 @@ export function Scene3D({
         });
       }
 
-      // Create new building group with floor visualization
-      const isSelected = building.id === analysis.selectedBuildingId;
-      buildingObj = createBuildingMesh(
-        building,
-        site.scale,
-        isSelected ? analysis.selectedFloor : undefined,
-        isSelected
-      );
-      scene.add(buildingObj);
-
-      // Highlight selected building with emissive
-      if (isSelected && !analysis.selectedFloor) {
-        buildingObj.traverse((child) => {
-          if (
-            child instanceof THREE.Mesh &&
-            child.material instanceof THREE.MeshStandardMaterial
-          ) {
-            child.material.emissive = new THREE.Color(0x333333);
-          }
-        });
+      // Validate footprint before transformation
+      const validation = validateFootprint(building.footprint, 'image');
+      if (!validation.valid) {
+        console.error(`[Scene3D NEW] Building "${building.name}" has invalid footprint:`, validation.errors);
+        return; // Skip this building
       }
 
-      newGroups.set(building.id, buildingObj);
+      if (validation.warnings.length > 0) {
+        console.warn(`[Scene3D NEW] Building "${building.name}" warnings:`, validation.warnings);
+      }
+
+      try {
+        // STAGE 1 & 2: Transform footprint from Image Space → World Space → Local Space
+        const transformResult = transformFootprint(building.footprint, siteConfig);
+        const { worldFootprint, localFootprint, centroid } = transformResult.data;
+
+        // Debug logging
+        console.group(`🏢 Building Projection: ${building.name}`);
+
+        // Image footprint bounds (pixels)
+        const imgMinX = Math.min(...building.footprint.map(p => p.x));
+        const imgMaxX = Math.max(...building.footprint.map(p => p.x));
+        const imgMinY = Math.min(...building.footprint.map(p => p.y));
+        const imgMaxY = Math.max(...building.footprint.map(p => p.y));
+        const imgCenterX = (imgMinX + imgMaxX) / 2;
+        const imgCenterY = (imgMinY + imgMaxY) / 2;
+
+        console.log('📐 Image footprint (pixels):', building.footprint.length, 'points');
+        console.log(`   Bounds: X[${imgMinX.toFixed(0)} - ${imgMaxX.toFixed(0)}], Y[${imgMinY.toFixed(0)} - ${imgMaxY.toFixed(0)}]`);
+        console.log(`   Center: (${imgCenterX.toFixed(0)}, ${imgCenterY.toFixed(0)}) px`);
+        console.log(`   Image center is: (${siteConfig.imageWidth/2}, ${siteConfig.imageHeight/2}) px`);
+        console.log(`   Offset from image center: (${(imgCenterX - siteConfig.imageWidth/2).toFixed(0)}, ${(imgCenterY - siteConfig.imageHeight/2).toFixed(0)}) px`);
+
+        console.log('🌍 World footprint (meters):', worldFootprint.length, 'points');
+        console.log('  First point:', worldFootprint[0]);
+        console.log('📦 Local footprint (centered):', localFootprint.length, 'points');
+        console.log('  First point:', localFootprint[0]);
+        console.log(`📍 World centroid (3D position): X=${centroid.x.toFixed(2)}m, Z=${centroid.y.toFixed(2)}m`);
+
+        // Check if centroid is within expected site bounds
+        const halfSiteWidth = (siteConfig.imageWidth * site.scale) / 2;
+        const halfSiteHeight = (siteConfig.imageHeight * site.scale) / 2;
+        const inBounds = Math.abs(centroid.x) <= halfSiteWidth && Math.abs(centroid.y) <= halfSiteHeight;
+        console.log(`📏 Expected site bounds: X[${(-halfSiteWidth).toFixed(1)} to ${halfSiteWidth.toFixed(1)}m], Z[${(-halfSiteHeight).toFixed(1)} to ${halfSiteHeight.toFixed(1)}m]`);
+        console.log(`   Building in bounds: ${inBounds ? '✅ Yes' : '❌ No'}`);
+
+        // Manual verification: Calculate expected world position without rotation
+        const expectedWorldX = (imgCenterX - siteConfig.imageWidth/2) * site.scale;
+        const expectedWorldZ = (imgCenterY - siteConfig.imageHeight/2) * site.scale;
+        console.log(`🎯 Expected world position (no rotation): X=${expectedWorldX.toFixed(2)}m, Z=${expectedWorldZ.toFixed(2)}m`);
+        console.log(`   Actual centroid: X=${centroid.x.toFixed(2)}m, Z=${centroid.y.toFixed(2)}m`);
+        if (site.northAngle !== 0) {
+          console.log(`   Note: Rotation of ${site.northAngle}° is applied, so actual position differs from expected`);
+        }
+
+        console.log('🔧 Site config:', `scale=${site.scale}m/px, north=${site.northAngle}°`);
+        console.log('📏 Building height:', `${building.floors} floors × ${building.floorHeight}m = ${building.floors * building.floorHeight}m`);
+
+        // STAGE 3: Create mesh using ROBUST builder
+        const isSelected = building.id === analysis.selectedBuildingId;
+        console.log('🔨 Creating mesh with robust triangulation...');
+
+        const meshResult = createRobustBuildingMesh(localFootprint, {
+          color: building.color,
+          floors: building.floors,
+          floorHeight: building.floorHeight,
+          showFloorDivisions: true,
+          isSelected,
+          selectedFloor: isSelected ? analysis.selectedFloor : undefined,
+          floorOpacity: displaySettings?.floorTransparency ?? 0.8,
+          castShadow: true,
+          receiveShadow: true,
+          validateInput: true,
+          logValidation: true,
+          generateDebugWireframe: false, // Set to true to enable debug wireframe
+        });
+
+        const mesh = meshResult.mesh;
+
+        // Log validation results
+        if (meshResult.validation.warnings.length > 0) {
+          console.warn(`⚠️  Validation warnings for ${building.name}:`, meshResult.validation.warnings);
+        }
+
+        console.log('✅ Mesh created:', mesh.name, 'children:', mesh.children.length);
+        console.log(`   Triangles: ${meshResult.triangulation.triangleCount}`);
+        console.log(`   Vertices: ${meshResult.validation.metadata.normalizedVertexCount}`);
+
+        // STAGE 4: Position mesh in world space
+        mesh.position.set(
+          centroid.x,   // World X
+          0,            // Ground level (Y=0)
+          centroid.y    // World Z (centroid.y is Z in XZ plane)
+        );
+
+        console.log('📌 Mesh positioned at:', `(${mesh.position.x.toFixed(2)}, ${mesh.position.y.toFixed(2)}, ${mesh.position.z.toFixed(2)})`);
+
+        // Add to scene
+        scene.add(mesh);
+        console.log('✅ Added to scene. Total scene children:', scene.children.length);
+
+        // Highlight selected building
+        if (isSelected && !analysis.selectedFloor) {
+          mesh.traverse((child) => {
+            if (
+              child instanceof THREE.Mesh &&
+              child.material instanceof THREE.MeshStandardMaterial
+            ) {
+              child.material.emissive = new THREE.Color(0x333333);
+            }
+          });
+        }
+
+        newGroups.set(building.id, mesh);
+        console.groupEnd();
+
+      } catch (error) {
+        console.error(`[Scene3D NEW] Failed to create building "${building.name}":`, error);
+        console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack');
+        console.groupEnd();
+      }
     });
 
+    // Summary logging
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📊 Building Creation Summary:');
+    console.log(`   Total buildings: ${buildings.length}`);
+    console.log(`   Successfully created: ${newGroups.size}`);
+    console.log(`   Failed: ${buildings.length - newGroups.size}`);
+    console.log(`   Scene children count: ${scene.children.length}`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
     buildingMeshesRef.current = newGroups;
+
+    // Phase 5: Notify parent of updated building meshes
+    if (onBuildingMeshesUpdate) {
+      onBuildingMeshesUpdate(new Map(newGroups));
+    }
   }, [
     buildings,
     site.scale,
+    site.northAngle,
     analysis.selectedBuildingId,
     analysis.selectedFloor,
+    project.image,
+    displaySettings?.floorTransparency,
+    onBuildingMeshesUpdate,
   ]);
 
   // Update sun position based on time with shadow caching
@@ -1036,10 +1449,11 @@ export function Scene3D({
       ref={containerRef}
       className="w-full h-full min-h-[400px] rounded-lg overflow-hidden"
       role="img"
-      aria-label="3D sunlight visualization. Use mouse to rotate view, scroll to zoom."
+      aria-label="3D sunlight visualization. Use mouse to rotate view, scroll to zoom. Keyboard: Arrow keys to pan, +/- to zoom, Home to reset, F to fit, N for north."
+      tabIndex={0}
     />
   );
-}
+});
 
 /**
  * Create a north arrow indicator for the 3D scene
