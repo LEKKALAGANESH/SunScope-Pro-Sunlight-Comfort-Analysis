@@ -287,24 +287,34 @@ export function BuildingInfoPopup({
 
             {/* Summary Stats */}
             <div className="grid grid-cols-3 gap-1 text-center">
-              <div className="bg-green-50 rounded p-1.5">
-                <div className="text-green-600 font-semibold text-sm">
-                  {Math.round(building.floors * 0.3)}
-                </div>
-                <div className="text-green-600 text-xs">High</div>
-              </div>
-              <div className="bg-amber-50 rounded p-1.5">
-                <div className="text-amber-600 font-semibold text-sm">
-                  {Math.round(building.floors * 0.3)}
-                </div>
-                <div className="text-amber-600 text-xs">Medium</div>
-              </div>
-              <div className="bg-orange-50 rounded p-1.5">
-                <div className="text-orange-600 font-semibold text-sm">
-                  {Math.round(building.floors * 0.4)}
-                </div>
-                <div className="text-orange-600 text-xs">Low</div>
-              </div>
+              {(() => {
+                const counts = { high: 0, medium: 0, low: 0 };
+                for (let floor = 1; floor <= building.floors; floor++) {
+                  counts[getFloorSunlightEstimate(floor)]++;
+                }
+                return (
+                  <>
+                    <div className="bg-green-50 rounded p-1.5">
+                      <div className="text-green-600 font-semibold text-sm">
+                        {counts.high}
+                      </div>
+                      <div className="text-green-600 text-xs">High</div>
+                    </div>
+                    <div className="bg-amber-50 rounded p-1.5">
+                      <div className="text-amber-600 font-semibold text-sm">
+                        {counts.medium}
+                      </div>
+                      <div className="text-amber-600 text-xs">Medium</div>
+                    </div>
+                    <div className="bg-orange-50 rounded p-1.5">
+                      <div className="text-orange-600 font-semibold text-sm">
+                        {counts.low}
+                      </div>
+                      <div className="text-orange-600 text-xs">Low</div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
 
             <p className="text-xs text-gray-400 italic">
