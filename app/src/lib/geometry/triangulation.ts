@@ -202,9 +202,6 @@ export function triangulateWithValidation(
     };
     valid = result.valid;
 
-    if (!valid) {
-      console.warn(`[Triangulation] ${result.message}`);
-    }
   }
 
   return {

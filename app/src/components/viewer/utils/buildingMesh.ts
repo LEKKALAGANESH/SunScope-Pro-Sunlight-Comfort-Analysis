@@ -8,7 +8,7 @@ export function createBuildingMesh(
   building: Building,
   scale: number,
   selectedFloor?: number,
-  isSelected?: boolean
+  isSelected?: boolean,
 ): THREE.LOD {
   const lod = new THREE.LOD();
 
@@ -82,21 +82,21 @@ export function createBuildingMesh(
 
   // Color palette for floors (cycling through distinct colors) - used by HIGH and MEDIUM LOD
   const floorPalette = [
-    0x4CAF50,  // Green
-    0x2196F3,  // Blue
-    0xFF9800,  // Orange
-    0x9C27B0,  // Purple
-    0x00BCD4,  // Cyan
-    0xE91E63,  // Pink
-    0x8BC34A,  // Light Green
-    0x3F51B5,  // Indigo
-    0xFFC107,  // Amber
-    0x009688,  // Teal
-    0xF44336,  // Red
-    0x673AB7,  // Deep Purple
-    0x03A9F4,  // Light Blue
-    0xCDDC39,  // Lime
-    0xFF5722,  // Deep Orange
+    0x4caf50, // Green
+    0x2196f3, // Blue
+    0xff9800, // Orange
+    0x9c27b0, // Purple
+    0x00bcd4, // Cyan
+    0xe91e63, // Pink
+    0x8bc34a, // Light Green
+    0x3f51b5, // Indigo
+    0xffc107, // Amber
+    0x009688, // Teal
+    0xf44336, // Red
+    0x673ab7, // Deep Purple
+    0x03a9f4, // Light Blue
+    0xcddc39, // Lime
+    0xff5722, // Deep Orange
   ];
 
   // Generate floor colors array
@@ -154,7 +154,11 @@ export function createBuildingMesh(
     }
   } else {
     // Fallback for invalid shapes
-    const fallbackGeo = new THREE.BoxGeometry(width, building.totalHeight, depth);
+    const fallbackGeo = new THREE.BoxGeometry(
+      width,
+      building.totalHeight,
+      depth,
+    );
     const fallbackMesh = new THREE.Mesh(fallbackGeo, material);
     fallbackMesh.position.y = building.totalHeight / 2;
     fallbackMesh.castShadow = true;
@@ -228,10 +232,17 @@ export function createBuildingMesh(
       // IMPORTANT: Z-coordinate must match the shape extrusion (no negative sign)
       // Previously had -(p.y - centerZ) which caused floor lines to appear on wrong side
       const outlinePoints = points.map(
-        (p) => new THREE.Vector3(p.x - centerX, floorBottom + floorHeight, (p.y - centerZ))
+        (p) =>
+          new THREE.Vector3(
+            p.x - centerX,
+            floorBottom + floorHeight,
+            p.y - centerZ,
+          ),
       );
       outlinePoints.push(outlinePoints[0]);
-      const outlineGeo = new THREE.BufferGeometry().setFromPoints(outlinePoints);
+      const outlineGeo = new THREE.BufferGeometry().setFromPoints(
+        outlinePoints,
+      );
       const outlineMat = new THREE.LineBasicMaterial({
         color: isSelectedFloor ? 0xfbbf24 : 0x333333,
         linewidth: isSelectedFloor ? 2 : 1,
@@ -242,18 +253,25 @@ export function createBuildingMesh(
 
     // Add floor labels
     for (let floor = 1; floor <= building.floors; floor++) {
-      const showLabel = building.floors <= 20 || floor === 1 || floor === building.floors || floor % 5 === 0;
+      const showLabel =
+        building.floors <= 20 ||
+        floor === 1 ||
+        floor === building.floors ||
+        floor % 5 === 0;
       const isSelectedFloor = isSelected && floor === selectedFloor;
 
       if (showLabel || isSelectedFloor) {
-        const floorHeight = floor * building.floorHeight - building.floorHeight / 2;
+        const floorHeight =
+          floor * building.floorHeight - building.floorHeight / 2;
 
         const canvas = document.createElement("canvas");
         canvas.width = 64;
         canvas.height = 32;
         const ctx = canvas.getContext("2d")!;
 
-        ctx.fillStyle = isSelectedFloor ? "rgba(251, 191, 36, 0.9)" : "rgba(0, 0, 0, 0.6)";
+        ctx.fillStyle = isSelectedFloor
+          ? "rgba(251, 191, 36, 0.9)"
+          : "rgba(0, 0, 0, 0.6)";
         ctx.beginPath();
         ctx.roundRect(4, 4, 56, 24, 4);
         ctx.fill();
@@ -274,7 +292,11 @@ export function createBuildingMesh(
     }
   } else {
     // Fallback for invalid shapes
-    const fallbackGeo = new THREE.BoxGeometry(width, building.totalHeight, depth);
+    const fallbackGeo = new THREE.BoxGeometry(
+      width,
+      building.totalHeight,
+      depth,
+    );
     const fallbackMesh = new THREE.Mesh(fallbackGeo, material);
     fallbackMesh.position.y = building.totalHeight / 2;
     fallbackMesh.castShadow = true;
@@ -283,16 +305,20 @@ export function createBuildingMesh(
   }
 
   // Add LOD levels - increased thresholds to show detailed polygon shapes at further distances
-  lod.addLevel(highGroup, 0);      // 0-1000: Full detail with floor colors
-  lod.addLevel(medGroup, 1000);    // 1000-3000: Polygon shape without floor detail
-  lod.addLevel(lowGroup, 3000);    // 3000+: Simple box (only for very far distances)
+  lod.addLevel(highGroup, 0); // 0-1000: Full detail with floor colors
+  lod.addLevel(medGroup, 1000); // 1000-3000: Polygon shape without floor detail
+  lod.addLevel(lowGroup, 3000); // 3000+: Simple box (only for very far distances)
 
   // Position building: X = image X, Z = image Y (south = +Z, north = -Z)
   lod.position.set(centerX, 0, centerZ);
   lod.userData = { buildingId: building.id };
 
   // Add building name label above the building
-  const labelGroup = createBuildingLabel(building.name, building.totalHeight, buildingColor);
+  const labelGroup = createBuildingLabel(
+    building.name,
+    building.totalHeight,
+    buildingColor,
+  );
   lod.add(labelGroup);
 
   return lod;
@@ -301,7 +327,11 @@ export function createBuildingMesh(
 /**
  * Create a floating label above the building showing its name
  */
-function createBuildingLabel(name: string, buildingHeight: number, buildingColor: THREE.Color): THREE.Group {
+function createBuildingLabel(
+  name: string,
+  buildingHeight: number,
+  buildingColor: THREE.Color,
+): THREE.Group {
   const group = new THREE.Group();
 
   // Create canvas for the label
@@ -342,7 +372,11 @@ function createBuildingLabel(name: string, buildingHeight: number, buildingColor
   ctx.shadowBlur = 2;
   ctx.shadowOffsetX = 1;
   ctx.shadowOffsetY = 1;
-  ctx.fillText(name.length > 15 ? name.substring(0, 15) + "..." : name, canvas.width / 2, canvas.height / 2);
+  ctx.fillText(
+    name.length > 15 ? name.substring(0, 15) + "..." : name,
+    canvas.width / 2,
+    canvas.height / 2,
+  );
 
   // Create sprite
   const texture = new THREE.CanvasTexture(canvas);

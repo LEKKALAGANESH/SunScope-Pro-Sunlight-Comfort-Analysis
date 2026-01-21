@@ -462,7 +462,6 @@ export class CameraController {
    */
   resetToHome(animate: boolean = true): void {
     if (!this.homeView) {
-      console.warn('CameraController: No home view set');
       return;
     }
 

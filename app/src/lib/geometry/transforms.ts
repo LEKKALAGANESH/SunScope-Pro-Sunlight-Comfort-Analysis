@@ -260,23 +260,12 @@ export function hasSelfIntersection(points: Point2D[]): boolean {
 /**
  * Log transformation for debugging
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function logTransformation(
-  stageName: string,
-  input: Point2D[],
-  output: Point2D[],
-  config?: Record<string, unknown>
+  _stageName: string,
+  _input: Point2D[],
+  _output: Point2D[],
+  _config?: Record<string, unknown>
 ): void {
-  console.group(`🔄 ${stageName}`);
-  console.log('Input:', input.length, 'points');
-  if (input[0]) {
-    console.log('  First:', `(${input[0].x.toFixed(2)}, ${input[0].y.toFixed(2)})`);
-  }
-  console.log('Output:', output.length, 'points');
-  if (output[0]) {
-    console.log('  First:', `(${output[0].x.toFixed(2)}, ${output[0].y.toFixed(2)})`);
-  }
-  if (config) {
-    console.log('Config:', config);
-  }
-  console.groupEnd();
+  // Debug logging disabled in production
 }

@@ -109,7 +109,6 @@ export function AnimatedExportModal({
       setResult(exportResult);
       setExportState('complete');
     } catch (err) {
-      console.error('Animated export failed:', err);
       setError(err instanceof Error ? err.message : 'Export failed');
       setExportState('error');
     }

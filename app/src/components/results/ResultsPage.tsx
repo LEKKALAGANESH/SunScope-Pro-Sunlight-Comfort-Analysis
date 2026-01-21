@@ -940,7 +940,6 @@ function ExportModal({
         onClose();
       }, 500);
     } catch (error) {
-      console.error("Export error:", error);
       setExportStatus(
         error instanceof Error
           ? error.message

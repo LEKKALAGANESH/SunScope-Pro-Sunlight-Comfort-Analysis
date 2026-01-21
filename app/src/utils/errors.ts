@@ -265,22 +265,9 @@ export function validateInput(
 }
 
 // Error logging utility (for development and debugging)
-export function logError(error: AppError | Error, context?: string): void {
-  const timestamp = new Date().toISOString();
-  const contextStr = context ? ` [${context}]` : '';
-
-  if (error instanceof AppError) {
-    console.error(
-      `[${timestamp}]${contextStr} ${error.type}: ${error.userMessage}`,
-      {
-        severity: error.severity,
-        recovery: error.recoveryAction,
-        stack: error.stack,
-      }
-    );
-  } else {
-    console.error(`[${timestamp}]${contextStr} Error: ${error.message}`, error);
-  }
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function logError(_error: AppError | Error, _context?: string): void {
+  // Logging disabled in production
 }
 
 // Type guard for AppError

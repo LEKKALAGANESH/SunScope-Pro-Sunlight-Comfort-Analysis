@@ -15,28 +15,45 @@
  * - Z = North/South
  */
 
-import * as THREE from 'three';
-import earcut from 'earcut';
-import type { Point2D } from './types';
+import earcut from "earcut";
+import * as THREE from "three";
+import type { Point2D } from "./types";
 
-// Floor color palette - distinct colors for each floor
-const FLOOR_COLORS = [
-  0x4CAF50,  // Green
-  0x2196F3,  // Blue
-  0xFF9800,  // Orange
-  0x9C27B0,  // Purple
-  0x00BCD4,  // Cyan
-  0xE91E63,  // Pink
-  0x8BC34A,  // Light Green
-  0x3F51B5,  // Indigo
-  0xFFC107,  // Amber
-  0x009688,  // Teal
-  0xF44336,  // Red
-  0x673AB7,  // Deep Purple
-  0x03A9F4,  // Light Blue
-  0xCDDC39,  // Lime
-  0xFF5722,  // Deep Orange
+/**
+ * Light pastel floor color palette for clear floor differentiation
+ *
+ * Design principles:
+ * - Very light, soft, desaturated tones (pastels/near-white)
+ * - Sufficient contrast between adjacent floors
+ * - Preserves shadow visibility
+ * - Professional, architectural appearance
+ * - Alternating warm/cool tones for better visual separation
+ */
+const FLOOR_COLORS_PASTEL = [
+  0xf5e6e8, // Floor 1 - Soft rose/blush
+  0xe8f0f5, // Floor 2 - Light sky blue
+  0xf5f0e6, // Floor 3 - Warm cream
+  0xe6f5f0, // Floor 4 - Mint mist
+  0xf0e6f5, // Floor 5 - Lavender whisper
+  0xf5f5e6, // Floor 6 - Pale lemon
+  0xe6e8f5, // Floor 7 - Soft periwinkle
+  0xf5ebe6, // Floor 8 - Peach cream
+  0xe6f5f5, // Floor 9 - Aqua mist
+  0xf5e6f0, // Floor 10 - Pink pearl
+  0xebf5e6, // Floor 11 - Soft sage
+  0xf0f5f8, // Floor 12 - Cloud white
+  0xf8f5f0, // Floor 13 - Warm white
+  0xf0f8f5, // Floor 14 - Cool white
+  0xf8f0f5, // Floor 15+ - Blush white
 ];
+
+// Edge colors for floor separation - slightly darker than floor colors
+const FLOOR_EDGE_COLOR = 0xbbbbbb; // Light gray for subtle floor lines
+const FLOOR_EDGE_COLOR_DARK = 0x999999; // Darker for base and vertical edges
+
+// Selected floor highlight color
+const FLOOR_COLOR_SELECTED = 0xfbbf24; // Warm amber - stands out against pastels
+const FLOOR_COLOR_HOVER = 0xfcd34d; // Light amber for hover
 
 export interface MeshBuilderOptions {
   color: string;
@@ -70,7 +87,7 @@ export interface RobustMeshBuilderResult {
       originalVertexCount: number;
       normalizedVertexCount: number;
       area: number;
-      windingOrder: 'CW' | 'CCW';
+      windingOrder: "CW" | "CCW";
       wasReversed: boolean;
       duplicatesRemoved: number;
     };
@@ -116,21 +133,21 @@ function calculateArea(points: Point2D[]): number {
 /**
  * Get winding order of polygon
  */
-function getWindingOrder(points: Point2D[]): 'CW' | 'CCW' {
+function getWindingOrder(points: Point2D[]): "CW" | "CCW" {
   let sum = 0;
   const n = points.length;
   for (let i = 0; i < n; i++) {
     const j = (i + 1) % n;
     sum += (points[j].x - points[i].x) * (points[j].y + points[i].y);
   }
-  return sum > 0 ? 'CW' : 'CCW';
+  return sum > 0 ? "CW" : "CCW";
 }
 
 /**
  * Ensure polygon is counter-clockwise (required for correct face normals)
  */
 function ensureCCW(points: Point2D[]): Point2D[] {
-  if (getWindingOrder(points) === 'CW') {
+  if (getWindingOrder(points) === "CW") {
     return points.slice().reverse();
   }
   return points;
@@ -139,7 +156,10 @@ function ensureCCW(points: Point2D[]): Point2D[] {
 /**
  * Remove duplicate/near-duplicate points
  */
-function removeDuplicates(points: Point2D[], epsilon: number = 0.001): Point2D[] {
+function removeDuplicates(
+  points: Point2D[],
+  epsilon: number = 0.001,
+): Point2D[] {
   const result: Point2D[] = [];
   for (let i = 0; i < points.length; i++) {
     const curr = points[i];
@@ -166,7 +186,7 @@ function createFloorMesh(
   floorBottom: number,
   floorTop: number,
   color: THREE.Color,
-  isHighlighted: boolean = false
+  isHighlighted: boolean = false,
 ): THREE.Mesh {
   // Triangulate the footprint
   const triangles = triangulatePolygon(footprint);
@@ -201,7 +221,7 @@ function createFloorMesh(
     indices.push(
       triangles[i] + topOffset,
       triangles[i + 1] + topOffset,
-      triangles[i + 2] + topOffset
+      triangles[i + 2] + topOffset,
     );
   }
 
@@ -216,7 +236,7 @@ function createFloorMesh(
     const dx = p2.x - p1.x;
     const dz = p2.y - p1.y;
     const len = Math.sqrt(dx * dx + dz * dz);
-    const nx = dz / len;  // Perpendicular in XZ plane
+    const nx = dz / len; // Perpendicular in XZ plane
     const nz = -dx / len;
 
     const baseIdx = sideOffset + i * 4;
@@ -238,29 +258,37 @@ function createFloorMesh(
     vertices.push(p1.x, floorTop, p1.y);
     normals.push(nx, 0, nz);
 
-    // Two triangles for this quad
+    // Two triangles for this quad - reversed winding for OUTWARD facing walls
     indices.push(
-      baseIdx, baseIdx + 1, baseIdx + 2,
-      baseIdx, baseIdx + 2, baseIdx + 3
+      baseIdx,
+      baseIdx + 2,
+      baseIdx + 1,
+      baseIdx,
+      baseIdx + 3,
+      baseIdx + 2,
     );
   }
 
   // Create BufferGeometry
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(vertices, 3),
+  );
+  geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
   geometry.setIndex(indices);
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
 
-  // Create material
+  // Create material with settings optimized for shadow visibility on building surfaces
   const material = new THREE.MeshStandardMaterial({
     color: color,
-    roughness: 0.7,
-    metalness: 0.1,
-    transparent: isHighlighted,
-    opacity: isHighlighted ? 0.9 : 1.0,
-    side: THREE.DoubleSide, // Render both sides
+    roughness: 0.85, // Matte surface - critical for shadow visibility on walls
+    metalness: 0.0, // No metalness - prevents reflection washing out shadows
+    transparent: true, // MUST be true for building-to-building shadows
+    opacity: isHighlighted ? 0.95 : 0.99,
+    side: THREE.FrontSide,
+    flatShading: false,
   });
 
   const mesh = new THREE.Mesh(geometry, material);
@@ -277,7 +305,7 @@ function createFloorEdges(
   footprint: Point2D[],
   floorY: number,
   color: number,
-  isHighlighted: boolean = false
+  isHighlighted: boolean = false,
 ): THREE.Line {
   const points: THREE.Vector3[] = [];
 
@@ -289,7 +317,7 @@ function createFloorEdges(
 
   const geometry = new THREE.BufferGeometry().setFromPoints(points);
   const material = new THREE.LineBasicMaterial({
-    color: isHighlighted ? 0xFFD700 : color,
+    color: isHighlighted ? 0xffd700 : color,
     linewidth: isHighlighted ? 2 : 1,
   });
 
@@ -303,7 +331,7 @@ function createVerticalEdges(
   footprint: Point2D[],
   bottomY: number,
   topY: number,
-  color: number
+  color: number,
 ): THREE.LineSegments {
   const points: THREE.Vector3[] = [];
 
@@ -322,12 +350,13 @@ function createVerticalEdges(
 }
 
 /**
- * Create roof mesh
+ * Create roof mesh with distinct appearance
+ * Roofs are slightly lighter and have different material properties
  */
 function createRoofMesh(
   footprint: Point2D[],
   roofY: number,
-  color: THREE.Color
+  color: THREE.Color,
 ): THREE.Mesh {
   const triangles = triangulatePolygon(footprint);
 
@@ -340,20 +369,95 @@ function createRoofMesh(
   }
 
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(vertices, 3),
+  );
+  geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
   geometry.setIndex(triangles);
 
+  // Roof is lighter and has matte finish to show shadows clearly
+  const roofColor = color.clone().lerp(new THREE.Color(0xf8f8f8), 0.4);
   const material = new THREE.MeshStandardMaterial({
-    color: color.clone().multiplyScalar(0.85),
-    roughness: 0.5,
-    metalness: 0.05,
+    color: roofColor,
+    roughness: 0.9,
+    metalness: 0.0,
+    transparent: true, // Required for shadows from taller buildings
+    opacity: 0.99,
   });
 
   const mesh = new THREE.Mesh(geometry, material);
   mesh.receiveShadow = true;
+  mesh.castShadow = true; // V2: Roof casts shadows for building-to-building shadow effects
 
   return mesh;
+}
+
+/**
+ * Create floor number label as a sprite
+ * Labels are positioned on the building face for easy floor identification
+ */
+function createFloorLabel(
+  footprint: Point2D[],
+  floorNumber: number,
+  floorMidY: number,
+  isSelected: boolean = false,
+): THREE.Sprite {
+  // Find the centroid of the footprint
+  let sumX = 0,
+    sumZ = 0;
+  for (const p of footprint) {
+    sumX += p.x;
+    sumZ += p.y;
+  }
+  const centroidX = sumX / footprint.length;
+  const centroidZ = sumZ / footprint.length;
+
+  // Find the edge closest to positive X (typically facing "front")
+  // and position label just outside that edge
+  let maxX = -Infinity;
+  for (const p of footprint) {
+    if (p.x > maxX) maxX = p.x;
+  }
+
+  // Create canvas for the label
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext("2d")!;
+
+  // Draw background circle
+  ctx.beginPath();
+  ctx.arc(32, 32, 28, 0, Math.PI * 2);
+  ctx.fillStyle = isSelected
+    ? "rgba(245, 158, 11, 0.95)"
+    : "rgba(255, 255, 255, 0.9)";
+  ctx.fill();
+  ctx.strokeStyle = isSelected ? "#D97706" : "#6B7280";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Draw floor number
+  ctx.fillStyle = isSelected ? "#FFFFFF" : "#374151";
+  ctx.font = "bold 48px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(String(floorNumber), 32, 32);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  const material = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: true,
+  });
+
+  const sprite = new THREE.Sprite(material);
+  // Position slightly outside the building on the positive X side
+  sprite.position.set(maxX + 1.5, floorMidY, centroidZ);
+  sprite.scale.set(15, 15, 1);
+  sprite.name = `FloorLabel_${floorNumber}`;
+
+  return sprite;
 }
 
 /**
@@ -365,7 +469,7 @@ function createRoofMesh(
  */
 export function createRobustBuildingMesh(
   localFootprint: Point2D[],
-  options: RobustMeshBuilderOptions
+  options: RobustMeshBuilderOptions,
 ): RobustMeshBuilderResult {
   const {
     color,
@@ -382,7 +486,7 @@ export function createRobustBuildingMesh(
 
   // Validation
   if (localFootprint.length < 3) {
-    errors.push('Footprint must have at least 3 points');
+    errors.push("Footprint must have at least 3 points");
     return {
       mesh: new THREE.Group(),
       validation: {
@@ -394,7 +498,7 @@ export function createRobustBuildingMesh(
           originalVertexCount: localFootprint.length,
           normalizedVertexCount: 0,
           area: 0,
-          windingOrder: 'CCW',
+          windingOrder: "CCW",
           wasReversed: false,
           duplicatesRemoved: 0,
         },
@@ -413,14 +517,14 @@ export function createRobustBuildingMesh(
   const duplicatesRemoved = localFootprint.length - cleaned.length;
   const originalWinding = getWindingOrder(cleaned);
   const normalized = ensureCCW(cleaned);
-  const wasReversed = originalWinding === 'CW';
+  const wasReversed = originalWinding === "CW";
   const area = calculateArea(normalized);
 
   if (duplicatesRemoved > 0) {
     warnings.push(`Removed ${duplicatesRemoved} duplicate vertices`);
   }
   if (wasReversed) {
-    warnings.push('Reversed winding order to CCW');
+    warnings.push("Reversed winding order to CCW");
   }
   if (area < 1) {
     warnings.push(`Very small area: ${area.toFixed(2)} m²`);
@@ -430,34 +534,27 @@ export function createRobustBuildingMesh(
   const triangles = triangulatePolygon(normalized);
   const triangleCount = triangles.length / 3;
 
-  if (logValidation) {
-    console.log('[MeshBuilder] Building mesh creation:', {
-      inputPoints: localFootprint.length,
-      normalizedPoints: normalized.length,
-      triangles: triangleCount,
-      area: area.toFixed(2),
-      wasReversed,
-    });
-  }
+  // logValidation flag available for debugging if needed
 
   // Create the building group
   const group = new THREE.Group();
-  group.name = 'Building';
+  group.name = "Building";
 
   const totalHeight = floors * floorHeight;
   const baseColor = new THREE.Color(color);
 
-  // Create each floor with different color
+  // Create each floor with professional gradient coloring
   for (let floor = 1; floor <= floors; floor++) {
     const floorBottom = (floor - 1) * floorHeight;
     const floorTop = floor * floorHeight;
     const isSelectedFloor = isSelected && floor === selectedFloor;
 
-    // Get floor color from palette (cycling through colors)
-    const paletteIndex = (floor - 1) % FLOOR_COLORS.length;
+    // Get floor color - cycle through pastel palette for clear differentiation
+    // Each floor gets a distinct color, cycling through the palette
+    const colorIndex = (floor - 1) % FLOOR_COLORS_PASTEL.length;
     const floorColor = isSelectedFloor
-      ? new THREE.Color(0xFFD700) // Gold for selected floor
-      : new THREE.Color(FLOOR_COLORS[paletteIndex]);
+      ? new THREE.Color(FLOOR_COLOR_SELECTED) // Amber for selected floor
+      : new THREE.Color(FLOOR_COLORS_PASTEL[colorIndex]);
 
     // Create floor mesh
     const floorMesh = createFloorMesh(
@@ -465,32 +562,78 @@ export function createRobustBuildingMesh(
       floorBottom,
       floorTop,
       floorColor,
-      isSelectedFloor
+      isSelectedFloor,
     );
     floorMesh.name = `Floor_${floor}`;
     group.add(floorMesh);
 
-    // Add floor division lines
+    // Add floor division lines for clear floor separation
     if (showFloorDivisions) {
-      const topEdge = createFloorEdges(normalized, floorTop, 0x333333, isSelectedFloor);
+      const edgeColor = isSelectedFloor
+        ? FLOOR_COLOR_SELECTED
+        : FLOOR_EDGE_COLOR;
+      const topEdge = createFloorEdges(
+        normalized,
+        floorTop,
+        edgeColor,
+        isSelectedFloor,
+      );
       topEdge.name = `FloorEdge_${floor}`;
       group.add(topEdge);
+
+      // Add bottom edge for first floor for grounding
+      if (floor === 1) {
+        const bottomEdge = createFloorEdges(
+          normalized,
+          floorBottom + 0.01,
+          FLOOR_EDGE_COLOR_DARK,
+          false,
+        );
+        bottomEdge.name = `FloorEdge_0_base`;
+        group.add(bottomEdge);
+      }
+    }
+
+    // Add floor number labels
+    // Show labels for: first floor, selected floor, top floor, and every 5th floor for tall buildings
+    const showLabel =
+      floor === 1 ||
+      floor === floors ||
+      isSelectedFloor ||
+      (floors > 10 && floor % 5 === 0) ||
+      floors <= 10;
+
+    if (showLabel) {
+      const floorMidY = (floorBottom + floorTop) / 2;
+      const label = createFloorLabel(
+        normalized,
+        floor,
+        floorMidY,
+        isSelectedFloor,
+      );
+      group.add(label);
     }
   }
 
-  // Add vertical edge lines
-  const verticalEdges = createVerticalEdges(normalized, 0, totalHeight, 0x333333);
-  verticalEdges.name = 'VerticalEdges';
+  // Add vertical edge lines at corners for building definition
+  const verticalEdges = createVerticalEdges(
+    normalized,
+    0,
+    totalHeight,
+    FLOOR_EDGE_COLOR_DARK,
+  );
+  verticalEdges.name = "VerticalEdges";
   group.add(verticalEdges);
 
-  // Add roof
-  const roofMesh = createRoofMesh(normalized, totalHeight + 0.05, baseColor);
-  roofMesh.name = 'Roof';
+  // Add roof with subtle tint from building color
+  const roofColor = baseColor.clone().lerp(new THREE.Color(0xffffff), 0.3);
+  const roofMesh = createRoofMesh(normalized, totalHeight + 0.02, roofColor);
+  roofMesh.name = "Roof";
   group.add(roofMesh);
 
-  // Add base edge
-  const baseEdge = createFloorEdges(normalized, 0.01, 0x222222);
-  baseEdge.name = 'BaseEdge';
+  // Add prominent base edge for visual grounding
+  const baseEdge = createFloorEdges(normalized, 0.02, FLOOR_EDGE_COLOR_DARK);
+  baseEdge.name = "BaseEdge";
   group.add(baseEdge);
 
   return {
@@ -523,7 +666,7 @@ export function createRobustBuildingMesh(
  */
 export function createBuildingMesh(
   localFootprint: Point2D[],
-  options: MeshBuilderOptions
+  options: MeshBuilderOptions,
 ): THREE.Object3D {
   const result = createRobustBuildingMesh(localFootprint, options);
   return result.mesh;
@@ -534,7 +677,7 @@ export function createBuildingMesh(
  */
 export function createFloorByFloorMesh(
   localFootprint: Point2D[],
-  options: MeshBuilderOptions
+  options: MeshBuilderOptions,
 ): THREE.Object3D {
   return createBuildingMesh(localFootprint, options);
 }
@@ -545,7 +688,7 @@ export function createFloorByFloorMesh(
 export function createExtrudedGeometry(
   footprint: Point2D[],
   height: number,
-  triangulation: number[]
+  triangulation: number[],
 ): THREE.BufferGeometry {
   const vertices: number[] = [];
   const indices: number[] = [];
@@ -572,7 +715,7 @@ export function createExtrudedGeometry(
     indices.push(
       triangulation[i] + topOffset,
       triangulation[i + 1] + topOffset,
-      triangulation[i + 2] + topOffset
+      triangulation[i + 2] + topOffset,
     );
   }
 
@@ -605,8 +748,11 @@ export function createExtrudedGeometry(
   }
 
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(vertices, 3),
+  );
+  geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
   geometry.setIndex(indices);
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
@@ -619,7 +765,7 @@ export function createExtrudedGeometry(
  */
 export function createDebugWireframe(
   footprint: Point2D[],
-  height: number
+  height: number,
 ): THREE.LineSegments {
   const points: THREE.Vector3[] = [];
 

@@ -107,6 +107,9 @@ interface ProjectState {
   setFloorTransparency: (opacity: number) => void;
   toggleShadowHeatmap: (show: boolean) => void;
   setHeatmapOpacity: (opacity: number) => void;
+  setShadowIntensity: (intensity: number) => void;
+  setBuildingHeightScale: (scale: number) => void;
+  setShadowVisualizationMode: (mode: 'natural' | 'enhanced' | 'analysis') => void;
 
   // Measurement actions
   setMeasurementMode: (enabled: boolean) => void;
@@ -150,10 +153,13 @@ const getDefaultScenario = (): Scenario => ({
 });
 
 const getDefaultDisplaySettings = (): DisplaySettings => ({
-  floorTransparency: 0.6,
+  floorTransparency: 1,
   showFloorLabels: true,
   showShadowHeatmap: false,
   heatmapOpacity: 0.5,
+  shadowIntensity: 0.7, // Default shadow darkness (0.3-1.0)
+  buildingHeightScale: 6.5, // Default height multiplier for visual impact (1.0-3.0)
+  shadowVisualizationMode: 'natural', // Default: natural shadows with dynamic softness
 });
 
 // Helper to calculate polygon area
@@ -252,15 +258,21 @@ export const useProjectStore = create<ProjectState>()(
   addBuilding: (footprint, name) =>
     set((state) => {
       const buildingCount = state.project.buildings.length;
+      const area = calculatePolygonArea(footprint);
+      // V2: Calculate proportional floor count based on footprint area
+      // Larger footprints get more floors for visual balance
+      // Small (<500m²): 6 floors, Medium (<2000m²): 10 floors, Large: 15 floors
+      const proportionalFloors = area < 500 ? 6 : area < 2000 ? 10 : 15;
+      const floorHeight = 3; // Standard floor height in meters
       const newBuilding: Building = {
         id: uuidv4(),
         name: name || `Building ${buildingCount + 1}`,
         footprint,
-        floors: 4,
-        floorHeight: 3,
+        floors: proportionalFloors,
+        floorHeight: floorHeight,
         baseElevation: 0,
-        totalHeight: 12,
-        area: calculatePolygonArea(footprint),
+        totalHeight: proportionalFloors * floorHeight,
+        area: area,
         color: buildingColors[buildingCount % buildingColors.length],
       };
       return {
@@ -486,17 +498,24 @@ export const useProjectStore = create<ProjectState>()(
       (b) => b.selected
     );
     const existingBuildingCount = state.project.buildings.length;
-    const newBuildings: Building[] = selectedBuildings.map((detected, index) => ({
-      id: uuidv4(),
-      name: detected.suggestedName || `Building ${existingBuildingCount + index + 1}`,
-      footprint: detected.footprint,
-      floors: 4,
-      floorHeight: 3,
-      baseElevation: 0,
-      totalHeight: 12,
-      area: detected.area,
-      color: buildingColors[(existingBuildingCount + index) % buildingColors.length],
-    }));
+    const newBuildings: Building[] = selectedBuildings.map((detected, index) => {
+      // V2: Calculate proportional floor count based on footprint area
+      // Larger footprints get more floors for visual balance
+      const area = detected.area || 1000;
+      const proportionalFloors = area < 500 ? 6 : area < 2000 ? 10 : 15;
+      const floorHeight = 3; // Standard floor height in meters
+      return {
+        id: uuidv4(),
+        name: detected.suggestedName || `Building ${existingBuildingCount + index + 1}`,
+        footprint: detected.footprint,
+        floors: proportionalFloors,
+        floorHeight: floorHeight,
+        baseElevation: 0,
+        totalHeight: proportionalFloors * floorHeight,
+        area: detected.area,
+        color: buildingColors[(existingBuildingCount + index) % buildingColors.length],
+      };
+    });
     summary.buildingsImported = newBuildings.length;
 
     // Import selected amenities
@@ -583,7 +602,6 @@ export const useProjectStore = create<ProjectState>()(
     import('../data/sampleProjects').then(({ getSampleProjectById, generateSampleImage }) => {
       const sample = getSampleProjectById(projectId);
       if (!sample) {
-        console.error(`Sample project not found: ${projectId}`);
         return;
       }
 
@@ -636,6 +654,21 @@ export const useProjectStore = create<ProjectState>()(
   setHeatmapOpacity: (opacity) =>
     set((state) => ({
       displaySettings: { ...state.displaySettings, heatmapOpacity: opacity },
+    })),
+
+  setShadowIntensity: (intensity) =>
+    set((state) => ({
+      displaySettings: { ...state.displaySettings, shadowIntensity: intensity },
+    })),
+
+  setBuildingHeightScale: (scale) =>
+    set((state) => ({
+      displaySettings: { ...state.displaySettings, buildingHeightScale: scale },
+    })),
+
+  setShadowVisualizationMode: (mode: 'natural' | 'enhanced' | 'analysis') =>
+    set((state) => ({
+      displaySettings: { ...state.displaySettings, shadowVisualizationMode: mode },
     })),
 
   // Measurement actions

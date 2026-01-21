@@ -1,22 +1,26 @@
-import { useRef, useState, useCallback, useEffect } from 'react';
-import type * as THREE from 'three';
-import { useProjectStore } from '../../store/projectStore';
-import { Scene3D } from './Scene3D';
-import type { Scene3DHandle } from './Scene3D';
-import { DebugOverlay } from './DebugOverlay';
-import { TimeControls } from './TimeControls';
-import { AnimatedExportModal } from './AnimatedExportModal';
-import { CollapsibleSection } from './CollapsibleSection';
-import { NavigationControls } from './NavigationControls';
-import type { ViewPreset } from './NavigationControls';
-import { BuildingInfoPopup } from './BuildingInfoPopup';
+import { useCallback, useEffect, useRef, useState } from "react";
+import type * as THREE from "three";
+import { useProjectStore } from "../../store/projectStore";
+import { AnimatedExportModal } from "./AnimatedExportModal";
+import { BuildingInfoPopup } from "./BuildingInfoPopup";
+import { CollapsibleSection } from "./CollapsibleSection";
+import { DebugOverlay } from "./DebugOverlay";
+import type { ViewPreset } from "./NavigationControls";
+import { NavigationControls } from "./NavigationControls";
+import type { Scene3DHandle } from "./Scene3D";
+import { Scene3D } from "./Scene3D";
+import { TimeControls } from "./TimeControls";
 // Phase 5: New components
-import { CompassWidget } from './CompassWidget';
-import { BuildingLabels } from './BuildingLabels';
-import { exportToGLTF } from '../../modules/export/ExportService';
-import { captureScreenshot, downloadDataUrl, createFilename } from './utils/screenshotUtils';
-import type { Building, Vector3 } from '../../types';
-import type { SiteConfig as GeometrySiteConfig } from '../../lib/geometry';
+import type { SiteConfig as GeometrySiteConfig } from "../../lib/geometry";
+import { exportToGLTF } from "../../modules/export/ExportService";
+import type { Building } from "../../types";
+import { BuildingLabels } from "./BuildingLabels";
+// import { CompassWidget } from "./CompassWidget";
+import {
+  captureScreenshot,
+  createFilename,
+  downloadDataUrl,
+} from "./utils/screenshotUtils";
 
 interface SunPositionInfo {
   altitude: number;
@@ -33,15 +37,6 @@ export function ViewerPage() {
     setCurrentStep,
     setViewerSnapshot,
     displaySettings,
-    setFloorTransparency,
-    toggleShadowHeatmap,
-    setHeatmapOpacity,
-    measurements,
-    measurementMode,
-    setMeasurementMode,
-    addMeasurement,
-    removeMeasurement,
-    clearMeasurements,
   } = useProjectStore();
   const { buildings, analysis } = project;
 
@@ -53,61 +48,44 @@ export function ViewerPage() {
   const scene3DRef = useRef<Scene3DHandle>(null);
   // Phase 5: Container ref for building labels
   const viewerContainerRef = useRef<HTMLDivElement | null>(null);
-  const [buildingMeshes, setBuildingMeshes] = useState<Map<string, THREE.Object3D>>(new Map());
-  const [showBuildingLabels, setShowBuildingLabels] = useState(true);
+  const [buildingMeshes, setBuildingMeshes] = useState<
+    Map<string, THREE.Object3D>
+  >(new Map());
   const [cameraAzimuth, setCameraAzimuth] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
   const [sunPosition, setSunPosition] = useState<SunPositionInfo | null>(null);
   const [hoveredBuilding, setHoveredBuilding] = useState<Building | null>(null);
   const [hoveredFloor, setHoveredFloor] = useState<number | null>(null);
   const [showAnimatedExport, setShowAnimatedExport] = useState(false);
-  const [pendingMeasurementPoint, setPendingMeasurementPoint] = useState<Vector3 | null>(null);
-  const [sectionCut, setSectionCut] = useState<{
-    enabled: boolean;
-    axis: 'x' | 'y' | 'z';
-    position: number;
-    flip: boolean;
-  }>({
-    enabled: false,
-    axis: 'y',
-    position: 0.5,
-    flip: false,
-  });
   const [immersiveMode, setImmersiveMode] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Handle Escape key to exit immersive mode
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && immersiveMode) {
+      if (e.key === "Escape" && immersiveMode) {
         setImmersiveMode(false);
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [immersiveMode]);
 
   const handleSunPositionChange = useCallback((info: SunPositionInfo) => {
     setSunPosition(info);
   }, []);
 
-  const handleBuildingHover = useCallback((building: Building | null, floorInfo?: { floor: number | null } | null) => {
-    setHoveredBuilding(building);
-    setHoveredFloor(floorInfo?.floor ?? null);
-  }, []);
-
-  const handleMeasurementClick = useCallback((point: Vector3) => {
-    if (!measurementMode) return;
-
-    if (pendingMeasurementPoint) {
-      // Complete the measurement
-      addMeasurement(pendingMeasurementPoint, point);
-      setPendingMeasurementPoint(null);
-    } else {
-      // Start a new measurement
-      setPendingMeasurementPoint(point);
-    }
-  }, [measurementMode, pendingMeasurementPoint, addMeasurement]);
+  const handleBuildingHover = useCallback(
+    (
+      building: Building | null,
+      floorInfo?: { floor: number | null } | null,
+    ) => {
+      setHoveredBuilding(building);
+      setHoveredFloor(floorInfo?.floor ?? null);
+    },
+    [],
+  );
 
   // Phase 1: Camera azimuth change handler for compass
   const handleCameraChange = useCallback((azimuth: number) => {
@@ -146,25 +124,26 @@ export function ViewerPage() {
   }, []);
 
   // Phase 3: Floor selection from popup
-  const handleSelectFloorFromPopup = useCallback((floor: number | undefined) => {
-    selectFloor(floor);
-  }, [selectFloor]);
-
-  const handleCancelMeasurement = useCallback(() => {
-    setPendingMeasurementPoint(null);
-    setMeasurementMode(false);
-  }, [setMeasurementMode]);
+  const handleSelectFloorFromPopup = useCallback(
+    (floor: number | undefined) => {
+      selectFloor(floor);
+    },
+    [selectFloor],
+  );
 
   // Phase 5: Handle building label click
-  const handleLabelClick = useCallback((buildingId: string) => {
-    selectBuilding(buildingId);
-    scene3DRef.current?.focusOnBuilding(buildingId);
-  }, [selectBuilding]);
+  const handleLabelClick = useCallback(
+    (buildingId: string) => {
+      selectBuilding(buildingId);
+      scene3DRef.current?.focusOnBuilding(buildingId);
+    },
+    [selectBuilding],
+  );
 
   // Phase 5: Enhanced screenshot capture
   const handleScreenshot = useCallback(() => {
     if (!rendererRef.current || !sceneRef.current || !cameraRef.current) {
-      alert('Scene not ready. Please wait and try again.');
+      alert("Scene not ready. Please wait and try again.");
       return;
     }
 
@@ -174,37 +153,43 @@ export function ViewerPage() {
       cameraRef.current,
       {
         pixelRatio: 2,
-        watermark: { text: 'SunScope Pro', position: 'bottom-right' },
+        watermark: { text: "SunScope Pro", position: "bottom-right" },
         includeTimestamp: true,
-        format: 'png',
-      }
+        format: "png",
+      },
     );
 
-    downloadDataUrl(dataUrl, createFilename('sunscope-3d', 'png'));
+    downloadDataUrl(dataUrl, createFilename("sunscope-3d", "png"));
   }, []);
 
   // Phase 5: Handle building meshes update from Scene3D
-  const handleBuildingMeshesUpdate = useCallback((meshes: Map<string, THREE.Object3D>) => {
-    setBuildingMeshes(meshes);
-  }, []);
+  const handleBuildingMeshesUpdate = useCallback(
+    (meshes: Map<string, THREE.Object3D>) => {
+      setBuildingMeshes(meshes);
+    },
+    [],
+  );
 
-  const selectedBuilding = buildings.find((b) => b.id === analysis.selectedBuildingId);
+  const selectedBuilding = buildings.find(
+    (b) => b.id === analysis.selectedBuildingId,
+  );
 
   // Site configuration for debug overlay
-  const siteConfig: GeometrySiteConfig | null = project.image?.width && project.image?.height
-    ? {
-        imageWidth: project.image.width,
-        imageHeight: project.image.height,
-        scale: project.site.scale,
-        northAngle: project.site.northAngle,
-      }
-    : null;
+  const siteConfig: GeometrySiteConfig | null =
+    project.image?.width && project.image?.height
+      ? {
+          imageWidth: project.image.width,
+          imageHeight: project.image.height,
+          scale: project.site.scale,
+          northAngle: project.site.northAngle,
+        }
+      : null;
 
   const handleSceneReady = (
     scene: THREE.Scene,
     renderer: THREE.WebGLRenderer,
     camera: THREE.PerspectiveCamera,
-    sunLight: THREE.DirectionalLight
+    sunLight: THREE.DirectionalLight,
   ) => {
     sceneRef.current = scene;
     rendererRef.current = renderer;
@@ -214,16 +199,15 @@ export function ViewerPage() {
 
   const handleExportGLTF = async () => {
     if (!sceneRef.current) {
-      alert('Scene not ready. Please wait and try again.');
+      alert("Scene not ready. Please wait and try again.");
       return;
     }
 
     setIsExporting(true);
     try {
       await exportToGLTF(sceneRef.current);
-    } catch (error) {
-      console.error('GLTF export failed:', error);
-      alert('Failed to export 3D model. Please try again.');
+    } catch {
+      alert("Failed to export 3D model. Please try again.");
     } finally {
       setIsExporting(false);
     }
@@ -234,9 +218,8 @@ export function ViewerPage() {
     if (!rendererRef.current) return null;
     try {
       // The animation loop keeps the canvas updated, so we can capture directly
-      return rendererRef.current.domElement.toDataURL('image/png');
-    } catch (error) {
-      console.error('Failed to capture snapshot:', error);
+      return rendererRef.current.domElement.toDataURL("image/png");
+    } catch {
       return null;
     }
   };
@@ -247,7 +230,7 @@ export function ViewerPage() {
     if (snapshot) {
       setViewerSnapshot(snapshot);
     }
-    setCurrentStep('results');
+    setCurrentStep("results");
   };
 
   const floorOptions = selectedBuilding
@@ -257,24 +240,22 @@ export function ViewerPage() {
   // Render immersive mode as a separate full-screen overlay
   if (immersiveMode) {
     return (
-      <div className="fixed inset-0 z-[100] bg-gray-900" style={{ width: '100vw', height: '100vh' }}>
+      <div
+        className="fixed inset-0 z-[100] bg-gray-900"
+        style={{ width: "100vw", height: "100vh" }}
+      >
         <div className="w-full h-full relative">
           <Scene3D
             ref={scene3DRef}
             onSceneReady={handleSceneReady}
             onSunPositionChange={handleSunPositionChange}
             onBuildingHover={handleBuildingHover}
-            onMeasurementClick={handleMeasurementClick}
             onCameraChange={handleCameraChange}
             showNorthArrow={false}
             showSunRay={false}
             showScaleBar={true}
             showSunPath={true}
-            sectionCut={sectionCut}
             displaySettings={displaySettings}
-            measurements={measurements}
-            measurementMode={measurementMode}
-            pendingMeasurementPoint={pendingMeasurementPoint}
           />
 
           {/* Phase 1 & 3: Navigation Controls (Immersive Mode) */}
@@ -314,8 +295,18 @@ export function ViewerPage() {
             className="absolute top-4 left-4 bg-black/70 backdrop-blur-sm text-white px-4 py-2 rounded-lg hover:bg-black/90 transition-colors shadow-lg flex items-center gap-2"
             aria-label="Exit immersive mode"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
             <span className="text-sm font-medium">Exit (Esc)</span>
           </button>
@@ -323,15 +314,27 @@ export function ViewerPage() {
           {/* Time Overlay */}
           <div className="absolute top-4 right-4 bg-black/70 backdrop-blur-sm text-white px-4 py-2 rounded-lg text-sm font-mono shadow-lg">
             <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 24 24">
+              <svg
+                className="w-4 h-4 text-amber-400"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0z" />
               </svg>
               <span className="font-semibold">
-                {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                {currentTime.toLocaleTimeString("en-US", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: true,
+                })}
               </span>
             </div>
             <div className="text-xs text-gray-300 mt-1">
-              {analysis.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+              {analysis.date.toLocaleDateString("en-US", {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+              })}
             </div>
           </div>
 
@@ -340,14 +343,22 @@ export function ViewerPage() {
             <div className="absolute bottom-4 right-4 bg-black/70 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-xs font-mono shadow-lg">
               <div className="flex items-center gap-3">
                 <div>
-                  <span className="text-gray-400">Alt:</span>{' '}
-                  <span className={sunPosition.isAboveHorizon ? 'text-amber-400' : 'text-gray-500'}>
+                  <span className="text-gray-400">Alt:</span>{" "}
+                  <span
+                    className={
+                      sunPosition.isAboveHorizon
+                        ? "text-amber-400"
+                        : "text-gray-500"
+                    }
+                  >
                     {sunPosition.altitude.toFixed(1)}°
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-400">Az:</span>{' '}
-                  <span className="text-blue-400">{sunPosition.azimuth.toFixed(1)}°</span>
+                  <span className="text-gray-400">Az:</span>{" "}
+                  <span className="text-blue-400">
+                    {sunPosition.azimuth.toFixed(1)}°
+                  </span>
                 </div>
               </div>
             </div>
@@ -358,13 +369,25 @@ export function ViewerPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto bg-gradient-viewer rounded-2xl p-6">
-      {/* Mobile: Stack vertically, Desktop: 4-column grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        {/* Left Sidebar - Selection */}
-        <div className="space-y-4 order-2 lg:order-1">
+    <div className="max-w-[1600px] mx-auto bg-gradient-viewer rounded-2xl p-4 lg:p-6">
+      {/* Mobile: Stack vertically, Desktop: Dynamic grid based on sidebar state */}
+      <div
+        className={`grid grid-cols-1 gap-4 ${
+          sidebarCollapsed ? "lg:grid-cols-1" : "lg:grid-cols-4"
+        }`}
+      >
+        {/* Left Sidebar - Selection (collapsible) */}
+        <div
+          className={`space-y-4 order-2 lg:order-1 transition-all duration-300 ${
+            sidebarCollapsed ? "lg:hidden" : ""
+          }`}
+        >
           {/* Building Selection */}
-          <CollapsibleSection title="Buildings" badge={buildings.length} defaultCollapsed={true}>
+          <CollapsibleSection
+            title="Buildings"
+            badge={buildings.length}
+            defaultCollapsed={true}
+          >
             {buildings.length === 0 ? (
               <p className="text-sm text-gray-500">No buildings to select</p>
             ) : (
@@ -373,8 +396,8 @@ export function ViewerPage() {
                   onClick={() => selectBuilding(undefined)}
                   className={`w-full text-left px-3 py-2 rounded-lg transition-all duration-200 ${
                     !analysis.selectedBuildingId
-                      ? 'bg-gradient-to-r from-amber-100 to-amber-50 border border-amber-300 shadow-sm'
-                      : 'bg-gradient-to-r from-gray-50 to-white hover:from-gray-100 hover:to-gray-50 border border-transparent hover:border-gray-200'
+                      ? "bg-gradient-to-r from-amber-100 to-amber-50 border border-amber-300 shadow-sm"
+                      : "bg-gradient-to-r from-gray-50 to-white hover:from-gray-100 hover:to-gray-50 border border-transparent hover:border-gray-200"
                   }`}
                 >
                   <span className="text-sm font-medium">Entire Site</span>
@@ -385,8 +408,8 @@ export function ViewerPage() {
                     onClick={() => selectBuilding(building.id)}
                     className={`w-full text-left px-3 py-2 rounded-lg transition-all duration-200 ${
                       analysis.selectedBuildingId === building.id
-                        ? 'bg-gradient-to-r from-amber-100 to-amber-50 border border-amber-300 shadow-sm'
-                        : 'bg-gradient-to-r from-gray-50 to-white hover:from-gray-100 hover:to-gray-50 border border-transparent hover:border-gray-200'
+                        ? "bg-gradient-to-r from-amber-100 to-amber-50 border border-amber-300 shadow-sm"
+                        : "bg-gradient-to-r from-gray-50 to-white hover:from-gray-100 hover:to-gray-50 border border-transparent hover:border-gray-200"
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -394,7 +417,9 @@ export function ViewerPage() {
                         className="w-3 h-3 rounded"
                         style={{ backgroundColor: building.color }}
                       />
-                      <span className="text-sm font-medium">{building.name}</span>
+                      <span className="text-sm font-medium">
+                        {building.name}
+                      </span>
                     </div>
                     <p className="text-xs text-gray-500 mt-0.5">
                       {building.floors} floors, {building.totalHeight}m tall
@@ -409,17 +434,19 @@ export function ViewerPage() {
           {selectedBuilding && (
             <CollapsibleSection title="Floor Selection" defaultCollapsed={true}>
               <select
-                value={analysis.selectedFloor || ''}
+                value={analysis.selectedFloor || ""}
                 onChange={(e) =>
-                  selectFloor(e.target.value ? parseInt(e.target.value) : undefined)
+                  selectFloor(
+                    e.target.value ? parseInt(e.target.value) : undefined,
+                  )
                 }
                 className="input"
               >
                 <option value="">All floors</option>
                 {floorOptions.map((floor) => (
                   <option key={floor} value={floor}>
-                    Floor {floor}{' '}
-                    ({((floor - 1) * selectedBuilding.floorHeight).toFixed(1)}m -{' '}
+                    Floor {floor} (
+                    {((floor - 1) * selectedBuilding.floorHeight).toFixed(1)}m -{" "}
                     {(floor * selectedBuilding.floorHeight).toFixed(1)}m)
                   </option>
                 ))}
@@ -427,239 +454,105 @@ export function ViewerPage() {
             </CollapsibleSection>
           )}
 
-          {/* Section Cut Controls */}
-          <CollapsibleSection title="Section Cut" defaultCollapsed={true}>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-gray-600">Enable</span>
-              <button
-                onClick={() => setSectionCut(prev => ({ ...prev, enabled: !prev.enabled }))}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  sectionCut.enabled ? 'bg-amber-500' : 'bg-gray-300'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    sectionCut.enabled ? 'translate-x-6' : 'translate-x-1'
-                  }`}
+          <TimeControls />
+
+          {/* Display Settings */}
+          <CollapsibleSection title="Display Settings" defaultCollapsed={true}>
+            <div className="space-y-4">
+              {/* Shadow Intensity */}
+              <div>
+                <label className="text-xs text-gray-600 mb-1 block">
+                  Shadow Intensity:{" "}
+                  {Math.round((displaySettings.shadowIntensity ?? 0.7) * 100)}%
+                </label>
+                <input
+                  type="range"
+                  min="30"
+                  max="100"
+                  value={(displaySettings.shadowIntensity ?? 0.7) * 100}
+                  onChange={(e) => {
+                    const intensity = parseInt(e.target.value) / 100;
+                    useProjectStore.getState().setShadowIntensity(intensity);
+                  }}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-amber-500"
                 />
-              </button>
-            </div>
-
-            {sectionCut.enabled && (
-              <div className="space-y-3">
-                {/* Axis Selection */}
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">Cut Axis</label>
-                  <div className="grid grid-cols-3 gap-1">
-                    {(['x', 'y', 'z'] as const).map((axis) => (
-                      <button
-                        key={axis}
-                        onClick={() => setSectionCut(prev => ({ ...prev, axis, position: 0.5 }))}
-                        className={`px-2 py-1 rounded text-xs font-medium ${
-                          sectionCut.axis === axis
-                            ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                      >
-                        {axis === 'x' ? 'East-West' : axis === 'y' ? 'Height' : 'North-South'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Position Slider */}
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">
-                    Position: {Math.round(sectionCut.position * 100)}%
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={sectionCut.position * 100}
-                    onChange={(e) => setSectionCut(prev => ({
-                      ...prev,
-                      position: parseInt(e.target.value) / 100
-                    }))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-amber-500"
-                  />
-                </div>
-
-                {/* Flip Direction */}
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">Flip direction</span>
-                  <button
-                    onClick={() => setSectionCut(prev => ({ ...prev, flip: !prev.flip }))}
-                    className={`px-2 py-1 rounded text-xs ${
-                      sectionCut.flip
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-gray-100 text-gray-600'
-                    }`}
-                  >
-                    {sectionCut.flip ? 'Flipped' : 'Normal'}
-                  </button>
+                <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                  <span>Light</span>
+                  <span>Dark</span>
                 </div>
               </div>
-            )}
 
-            <p className="text-xs text-gray-400 mt-2">
-              Slice through buildings to see interior floors.
-            </p>
-          </CollapsibleSection>
-
-          {/* Display Options */}
-          <CollapsibleSection title="Display Options" defaultCollapsed={true}>
-            {/* Building Labels Toggle */}
-            <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
-              <span className="text-xs text-gray-600">Building Labels</span>
-              <button
-                onClick={() => setShowBuildingLabels(!showBuildingLabels)}
-                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                  showBuildingLabels ? 'bg-amber-500' : 'bg-gray-300'
-                }`}
-                aria-pressed={showBuildingLabels}
-                aria-label="Toggle building labels"
-              >
-                <span
-                  className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
-                    showBuildingLabels ? 'translate-x-5' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Floor Transparency */}
-            <div className="space-y-3">
+              {/* Floor Transparency */}
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs text-gray-600">Floor Transparency</label>
-                  <span className="text-xs text-gray-500 font-mono">
-                    {Math.round(displaySettings.floorTransparency * 100)}%
-                  </span>
-                </div>
+                <label className="text-xs text-gray-600 mb-1 block">
+                  Floor Transparency:{" "}
+                  {Math.round((displaySettings.floorTransparency ?? 1) * 100)}
+                  %
+                </label>
                 <input
                   type="range"
                   min="10"
                   max="100"
-                  value={displaySettings.floorTransparency * 100}
-                  onChange={(e) => setFloorTransparency(parseInt(e.target.value) / 100)}
+                  value={(displaySettings.floorTransparency ?? 1) * 100}
+                  onChange={(e) => {
+                    const opacity = parseInt(e.target.value) / 100;
+                    useProjectStore.getState().setFloorTransparency(opacity);
+                  }}
                   className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-amber-500"
-                  aria-label="Floor transparency"
                 />
-                <p className="text-xs text-gray-400 mt-1">
-                  Adjust visibility of floor highlights
-                </p>
               </div>
 
-              {/* Shadow Heatmap */}
-              <div className="pt-2 border-t border-gray-100">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-gray-600">Shadow Heatmap</span>
-                  <button
-                    onClick={() => toggleShadowHeatmap(!displaySettings.showShadowHeatmap)}
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                      displaySettings.showShadowHeatmap ? 'bg-amber-500' : 'bg-gray-300'
-                    }`}
-                    aria-pressed={displaySettings.showShadowHeatmap}
-                    aria-label="Toggle shadow heatmap"
-                  >
-                    <span
-                      className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
-                        displaySettings.showShadowHeatmap ? 'translate-x-5' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
+              {/* Building Height Scale */}
+              <div>
+                <label className="text-xs text-gray-600 mb-1 block">
+                  Building Height Scale:{" "}
+                  {(displaySettings.buildingHeightScale ?? 1.5).toFixed(1)}x
+                </label>
+                <input
+                  type="range"
+                  min="100"
+                  max="300"
+                  value={(displaySettings.buildingHeightScale ?? 1.5) * 100}
+                  onChange={(e) => {
+                    const scale = parseInt(e.target.value) / 100;
+                    useProjectStore.getState().setBuildingHeightScale(scale);
+                  }}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                />
+                <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                  <span>1x (Actual)</span>
+                  <span>3x (Exaggerated)</span>
                 </div>
-
-                {displaySettings.showShadowHeatmap && (
-                  <div className="mt-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs text-gray-500">Heatmap Opacity</label>
-                      <span className="text-xs text-gray-500 font-mono">
-                        {Math.round(displaySettings.heatmapOpacity * 100)}%
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="10"
-                      max="80"
-                      value={displaySettings.heatmapOpacity * 100}
-                      onChange={(e) => setHeatmapOpacity(parseInt(e.target.value) / 100)}
-                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-amber-500"
-                      aria-label="Heatmap opacity"
-                    />
-                    <div className="flex justify-between text-xs mt-1">
-                      <span className="text-blue-500">Full Sun</span>
-                      <span className="text-red-500">Full Shadow</span>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </CollapsibleSection>
 
-          {/* Measurement Tool */}
-          <CollapsibleSection title="Measure Distance" badge={measurements.length > 0 ? measurements.length : undefined} defaultCollapsed={true}>
-            <button
-              onClick={() => {
-                if (measurementMode) {
-                  handleCancelMeasurement();
-                } else {
-                  setMeasurementMode(true);
-                }
-              }}
-              className={`w-full text-sm flex items-center justify-center gap-2 py-2 rounded-lg transition-colors ${
-                measurementMode
-                  ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                  : 'btn-outline'
-              }`}
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-              </svg>
-              {measurementMode ? 'Cancel Measurement' : 'Start Measuring'}
-            </button>
-
-            {measurementMode && (
-              <div className="mt-2 p-2 bg-amber-50 rounded-lg text-xs text-amber-700">
-                {pendingMeasurementPoint
-                  ? 'Click second point to complete measurement'
-                  : 'Click on the ground to set first point'}
+          {/* Quick Stats */}
+          <CollapsibleSection title="Current Analysis" defaultCollapsed={true}>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Target:</span>
+                <span className="font-medium">
+                  {selectedBuilding
+                    ? `${selectedBuilding.name}${
+                        analysis.selectedFloor
+                          ? `, Floor ${analysis.selectedFloor}`
+                          : ""
+                      }`
+                    : "Entire Site"}
+                </span>
               </div>
-            )}
-
-            {measurements.length > 0 && (
-              <div className="mt-3 space-y-2">
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                  <span>Measurements</span>
-                  <button
-                    onClick={clearMeasurements}
-                    className="text-red-500 hover:text-red-600"
-                  >
-                    Clear All
-                  </button>
-                </div>
-                {measurements.map((m, i) => (
-                  <div
-                    key={m.id}
-                    className="flex items-center justify-between bg-gradient-to-r from-gray-50 to-white rounded-lg px-2 py-1 text-sm border border-gray-100"
-                  >
-                    <span className="font-mono text-gray-700">
-                      #{i + 1}: {m.distance.toFixed(1)}m
-                    </span>
-                    <button
-                      onClick={() => removeMeasurement(m.id)}
-                      className="text-gray-400 hover:text-red-500 p-1"
-                      aria-label={`Remove measurement ${i + 1}`}
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
+              <div className="flex justify-between">
+                <span className="text-gray-500">Location:</span>
+                <span className="font-medium">
+                  {project.site.location.city || "Custom"}
+                </span>
               </div>
-            )}
+              <div className="flex justify-between">
+                <span className="text-gray-500">Buildings:</span>
+                <span className="font-medium">{buildings.length}</span>
+              </div>
+            </div>
           </CollapsibleSection>
 
           {/* Export Options */}
@@ -671,9 +564,24 @@ export function ViewerPage() {
                 disabled={buildings.length === 0}
                 className="w-full btn-outline text-sm disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
                 </svg>
                 Screenshot (PNG)
               </button>
@@ -691,8 +599,18 @@ export function ViewerPage() {
                   </>
                 ) : (
                   <>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                      />
                     </svg>
                     Export GLTF
                   </>
@@ -705,8 +623,18 @@ export function ViewerPage() {
                 disabled={buildings.length === 0}
                 className="w-full btn-primary text-sm disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
                 </svg>
                 Animated GIF
               </button>
@@ -717,28 +645,30 @@ export function ViewerPage() {
           </CollapsibleSection>
         </div>
 
-        {/* Main 3D View - First on mobile */}
-        <div className="lg:col-span-2 order-1 lg:order-2">
-          <div className="card p-0 overflow-hidden relative" ref={viewerContainerRef}>
-            {/* Responsive height */}
-            <div className="h-[300px] sm:h-[400px] lg:h-[500px] relative">
+        {/* Main 3D View - Takes full width when sidebar collapsed */}
+        <div
+          className={`order-1 lg:order-2 ${
+            sidebarCollapsed ? "lg:col-span-1" : "lg:col-span-3"
+          }`}
+        >
+          <div
+            className="card p-0 overflow-hidden relative"
+            ref={viewerContainerRef}
+          >
+            {/* Responsive height - maximized for 3D view prominence */}
+            <div className="h-[350px] sm:h-[500px] lg:h-[600px] xl:h-[700px] relative">
               <Scene3D
                 ref={scene3DRef}
                 onSceneReady={handleSceneReady}
                 onSunPositionChange={handleSunPositionChange}
                 onBuildingHover={handleBuildingHover}
-                onMeasurementClick={handleMeasurementClick}
                 onCameraChange={handleCameraChange}
                 onBuildingMeshesUpdate={handleBuildingMeshesUpdate}
                 showNorthArrow={false}
                 showSunRay={false}
                 showScaleBar={true}
                 showSunPath={true}
-                sectionCut={sectionCut}
                 displaySettings={displaySettings}
-                measurements={measurements}
-                measurementMode={measurementMode}
-                pendingMeasurementPoint={pendingMeasurementPoint}
               />
 
               {/* Phase 1 & 3: Navigation Controls with View Presets */}
@@ -773,21 +703,25 @@ export function ViewerPage() {
               </div>
 
               {/* Phase 5: Enhanced Compass Widget - below top-left buttons */}
-              <div className="absolute top-12 sm:top-24 left-3 z-10">
+              {/* <div className="absolute top-12 sm:top-24 left-3 z-10">
                 <CompassWidget
                   cameraAzimuth={cameraAzimuth * (Math.PI / 180)}
                   northOffset={project.site.northAngle}
-                  sunAzimuth={sunPosition ? sunPosition.azimuth * (Math.PI / 180) : undefined}
+                  sunAzimuth={
+                    sunPosition
+                      ? sunPosition.azimuth * (Math.PI / 180)
+                      : undefined
+                  }
                   sunAboveHorizon={sunPosition?.isAboveHorizon}
                   onRotateToNorth={handleAlignNorth}
                   size={56}
                   showSunIndicator={true}
                   compact={false}
                 />
-              </div>
+              </div> */}
 
               {/* Phase 5: Building Labels */}
-              {showBuildingLabels && buildings.length > 0 && (
+              {buildings.length > 0 && (
                 <BuildingLabels
                   buildings={buildings}
                   camera={cameraRef.current}
@@ -834,22 +768,26 @@ export function ViewerPage() {
             {/* Date/Time Overlay */}
             <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm text-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-mono shadow-lg">
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <svg className="w-3 h-3 sm:w-4 sm:h-4 text-amber-400" fill="currentColor" viewBox="0 0 24 24">
+                <svg
+                  className="w-3 h-3 sm:w-4 sm:h-4 text-amber-400"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
                   <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0z" />
                 </svg>
                 <span className="font-semibold">
-                  {currentTime.toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit',
+                  {currentTime.toLocaleTimeString("en-US", {
+                    hour: "2-digit",
+                    minute: "2-digit",
                     hour12: true,
                   })}
                 </span>
               </div>
               <div className="text-[10px] sm:text-xs text-gray-300 mt-0.5 sm:mt-1">
-                {analysis.date.toLocaleDateString('en-US', {
-                  weekday: 'short',
-                  month: 'short',
-                  day: 'numeric',
+                {analysis.date.toLocaleDateString("en-US", {
+                  weekday: "short",
+                  month: "short",
+                  day: "numeric",
                 })}
               </div>
             </div>
@@ -859,14 +797,22 @@ export function ViewerPage() {
               <div className="hidden sm:block absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm text-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-xs font-mono shadow-lg">
                 <div className="flex items-center gap-2 sm:gap-3">
                   <div>
-                    <span className="text-gray-400">Alt:</span>{' '}
-                    <span className={sunPosition.isAboveHorizon ? 'text-amber-400' : 'text-gray-500'}>
+                    <span className="text-gray-400">Alt:</span>{" "}
+                    <span
+                      className={
+                        sunPosition.isAboveHorizon
+                          ? "text-amber-400"
+                          : "text-gray-500"
+                      }
+                    >
                       {sunPosition.altitude.toFixed(1)}°
                     </span>
                   </div>
                   <div>
-                    <span className="text-gray-400">Az:</span>{' '}
-                    <span className="text-blue-400">{sunPosition.azimuth.toFixed(1)}°</span>
+                    <span className="text-gray-400">Az:</span>{" "}
+                    <span className="text-blue-400">
+                      {sunPosition.azimuth.toFixed(1)}°
+                    </span>
                   </div>
                 </div>
                 {!sunPosition.isAboveHorizon && (
@@ -879,29 +825,42 @@ export function ViewerPage() {
 
             {/* Top-left controls - stacked horizontally on mobile, vertically on desktop */}
             <div className="absolute top-3 left-3 flex sm:flex-col gap-1.5 z-10">
-              {/* Immersive Mode Toggle */}
+              {/* Sidebar Collapse Toggle - Desktop only */}
               <button
-                onClick={() => setImmersiveMode(true)}
-                className="bg-black/60 backdrop-blur-sm text-white p-1.5 sm:p-2 rounded hover:bg-black/80 transition-colors shadow-lg"
-                aria-label="Enter immersive mode"
-                title="Enter immersive mode (fullscreen)"
-              >
-                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                </svg>
-              </button>
-
-              {/* Debug Mode Toggle */}
-              <button
-                onClick={() => setDebugMode(!debugMode)}
-                className={`backdrop-blur-sm text-white p-1.5 sm:p-2 rounded transition-colors shadow-lg ${
-                  debugMode ? 'bg-amber-500/80 hover:bg-amber-600/80' : 'bg-black/60 hover:bg-black/80'
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                className={`hidden lg:block backdrop-blur-sm text-white p-1.5 sm:p-2 rounded transition-colors shadow-lg ${
+                  sidebarCollapsed
+                    ? "bg-amber-500/80 hover:bg-amber-600/80"
+                    : "bg-black/60 hover:bg-black/80"
                 }`}
-                aria-label="Toggle debug mode"
-                title="Toggle debug visualization (shows building positions and centroids)"
+                aria-label={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+                title={
+                  sidebarCollapsed
+                    ? "Show controls panel"
+                    : "Hide controls for larger view"
+                }
               >
-                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                <svg
+                  className="w-3.5 h-3.5 sm:w-4 sm:h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  {sidebarCollapsed ? (
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
+                    />
+                  ) : (
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 5l7 7-7 7M5 5l7 7-7 7"
+                    />
+                  )}
                 </svg>
               </button>
             </div>
@@ -927,34 +886,58 @@ export function ViewerPage() {
                         Floor {hoveredFloor}
                       </span>
                       <span className="text-xs text-amber-600">
-                        {((hoveredFloor - 1) * hoveredBuilding.floorHeight).toFixed(1)}m - {(hoveredFloor * hoveredBuilding.floorHeight).toFixed(1)}m
+                        {(
+                          (hoveredFloor - 1) *
+                          hoveredBuilding.floorHeight
+                        ).toFixed(1)}
+                        m -{" "}
+                        {(hoveredFloor * hoveredBuilding.floorHeight).toFixed(
+                          1,
+                        )}
+                        m
                       </span>
                     </div>
                     <div className="space-y-1 text-xs text-gray-600">
                       <div className="flex justify-between gap-2">
                         <span>Est. sunlight:</span>
-                        <span className={`font-medium ${
-                          hoveredFloor > hoveredBuilding.floors * 0.7 ? 'text-green-600' :
-                          hoveredFloor > hoveredBuilding.floors * 0.4 ? 'text-amber-600' :
-                          'text-orange-600'
-                        }`}>
-                          {hoveredFloor > hoveredBuilding.floors * 0.7 ? 'High' :
-                           hoveredFloor > hoveredBuilding.floors * 0.4 ? 'Medium' : 'Low'}
+                        <span
+                          className={`font-medium ${
+                            hoveredFloor > hoveredBuilding.floors * 0.7
+                              ? "text-green-600"
+                              : hoveredFloor > hoveredBuilding.floors * 0.4
+                                ? "text-amber-600"
+                                : "text-orange-600"
+                          }`}
+                        >
+                          {hoveredFloor > hoveredBuilding.floors * 0.7
+                            ? "High"
+                            : hoveredFloor > hoveredBuilding.floors * 0.4
+                              ? "Medium"
+                              : "Low"}
                         </span>
                       </div>
                       <div className="flex justify-between gap-2">
                         <span>Position:</span>
                         <span className="font-mono">
-                          {Math.round((hoveredFloor / hoveredBuilding.floors) * 100)}% height
+                          {Math.round(
+                            (hoveredFloor / hoveredBuilding.floors) * 100,
+                          )}
+                          % height
                         </span>
                       </div>
                       {sunPosition && sunPosition.isAboveHorizon && (
                         <div className="flex justify-between gap-2">
                           <span>Shadow risk:</span>
-                          <span className={`font-medium ${
-                            hoveredFloor > hoveredBuilding.floors * 0.5 ? 'text-green-600' : 'text-orange-600'
-                          }`}>
-                            {hoveredFloor > hoveredBuilding.floors * 0.5 ? 'Low' : 'Higher'}
+                          <span
+                            className={`font-medium ${
+                              hoveredFloor > hoveredBuilding.floors * 0.5
+                                ? "text-green-600"
+                                : "text-orange-600"
+                            }`}
+                          >
+                            {hoveredFloor > hoveredBuilding.floors * 0.5
+                              ? "Low"
+                              : "Higher"}
                           </span>
                         </div>
                       )}
@@ -965,7 +948,9 @@ export function ViewerPage() {
                 <div className="space-y-0.5 text-xs text-gray-600">
                   <div className="flex justify-between gap-4">
                     <span>Total height:</span>
-                    <span className="font-mono">{hoveredBuilding.totalHeight}m</span>
+                    <span className="font-mono">
+                      {hoveredBuilding.totalHeight}m
+                    </span>
                   </div>
                   <div className="flex justify-between gap-4">
                     <span>Floors:</span>
@@ -973,7 +958,9 @@ export function ViewerPage() {
                   </div>
                   <div className="flex justify-between gap-4">
                     <span>Floor height:</span>
-                    <span className="font-mono">{hoveredBuilding.floorHeight}m</span>
+                    <span className="font-mono">
+                      {hoveredBuilding.floorHeight}m
+                    </span>
                   </div>
                 </div>
                 <div className="mt-2 pt-1 border-t border-gray-200 text-xs text-amber-600 font-medium">
@@ -993,51 +980,28 @@ export function ViewerPage() {
               <span className="inline-block w-3 h-3 bg-gray-400 rounded-full mr-1" />
               Shadow
             </span>
-            <span className="hidden sm:inline">Drag to rotate | Scroll to zoom | Right-drag to pan</span>
-            <span className="sm:hidden text-center">Touch to rotate | Pinch to zoom</span>
+            <span className="hidden sm:inline">
+              Drag to rotate | Scroll to zoom | Right-drag to pan
+            </span>
+            <span className="sm:hidden text-center">
+              Touch to rotate | Pinch to zoom
+            </span>
           </div>
-        </div>
-
-        {/* Right Sidebar - Time Controls */}
-        <div className="space-y-4 order-3 lg:order-3">
-          <TimeControls />
-
-          {/* Quick Stats */}
-          <CollapsibleSection title="Current Analysis" defaultCollapsed={true}>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Target:</span>
-                <span className="font-medium">
-                  {selectedBuilding
-                    ? `${selectedBuilding.name}${
-                        analysis.selectedFloor
-                          ? `, Floor ${analysis.selectedFloor}`
-                          : ''
-                      }`
-                    : 'Entire Site'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Location:</span>
-                <span className="font-medium">
-                  {project.site.location.city || 'Custom'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Buildings:</span>
-                <span className="font-medium">{buildings.length}</span>
-              </div>
-            </div>
-          </CollapsibleSection>
         </div>
       </div>
 
       {/* Actions - Responsive: full width on mobile */}
       <div className="mt-6 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
-        <button onClick={() => setCurrentStep('editor')} className="btn-viewer-secondary order-2 sm:order-1">
+        <button
+          onClick={() => setCurrentStep("editor")}
+          className="btn-viewer-secondary order-2 sm:order-1"
+        >
           Back to Editor
         </button>
-        <button onClick={handleViewResults} className="btn-viewer-primary order-1 sm:order-2">
+        <button
+          onClick={handleViewResults}
+          className="btn-viewer-primary order-1 sm:order-2"
+        >
           View Results
         </button>
       </div>

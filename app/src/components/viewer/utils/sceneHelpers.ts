@@ -210,3 +210,140 @@ export function updateSunLightShadow(
   sunLight.shadow.camera.bottom = -shadowSize;
   sunLight.shadow.camera.updateProjectionMatrix();
 }
+
+/**
+ * Create cardinal direction labels (N, E, S, W) on the ground plane
+ * Provides clear orientation for users at all times
+ */
+export function createCompassRose(center: Point2D, size: number): THREE.Group {
+  const group = new THREE.Group();
+  group.name = "CompassRose";
+
+  const offset = size * 0.45; // Position near edges
+  const labelHeight = 0.5; // Slightly above ground
+
+  // Helper to create direction label
+  const createDirectionLabel = (
+    text: string,
+    x: number,
+    z: number,
+    color: string,
+    fontSize: number = 48
+  ): THREE.Sprite => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext("2d")!;
+
+    // Draw background circle
+    ctx.beginPath();
+    ctx.arc(64, 64, 56, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+    ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    // Draw text
+    ctx.fillStyle = color;
+    ctx.font = `bold ${fontSize}px Arial`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, 64, 64);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthTest: false,
+    });
+    const sprite = new THREE.Sprite(material);
+    sprite.position.set(center.x + x, labelHeight, center.y + z);
+    sprite.scale.set(15, 15, 1);
+    sprite.name = `Direction_${text}`;
+
+    return sprite;
+  };
+
+  // Create cardinal direction labels
+  // Three.js: -Z is North, +X is East, +Z is South, -X is West
+  const north = createDirectionLabel("N", 0, -offset, "#DC2626"); // Red for North
+  const south = createDirectionLabel("S", 0, offset, "#6B7280");   // Gray for South
+  const east = createDirectionLabel("E", offset, 0, "#6B7280");    // Gray for East
+  const west = createDirectionLabel("W", -offset, 0, "#6B7280");   // Gray for West
+
+  group.add(north);
+  group.add(south);
+  group.add(east);
+  group.add(west);
+
+  // Add subtle ground lines connecting directions
+  const lineMaterial = new THREE.LineBasicMaterial({
+    color: 0x9CA3AF,
+    transparent: true,
+    opacity: 0.5,
+  });
+
+  // N-S line
+  const nsGeometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(center.x, 0.1, center.y - offset + 10),
+    new THREE.Vector3(center.x, 0.1, center.y + offset - 10),
+  ]);
+  const nsLine = new THREE.Line(nsGeometry, lineMaterial);
+  nsLine.name = "NS_Line";
+  group.add(nsLine);
+
+  // E-W line
+  const ewGeometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(center.x - offset + 10, 0.1, center.y),
+    new THREE.Vector3(center.x + offset - 10, 0.1, center.y),
+  ]);
+  const ewLine = new THREE.Line(ewGeometry, lineMaterial);
+  ewLine.name = "EW_Line";
+  group.add(ewLine);
+
+  // Add center marker (small circle)
+  const centerGeometry = new THREE.RingGeometry(2, 3, 32);
+  const centerMaterial = new THREE.MeshBasicMaterial({
+    color: 0x9CA3AF,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.5,
+  });
+  const centerRing = new THREE.Mesh(centerGeometry, centerMaterial);
+  centerRing.rotation.x = -Math.PI / 2;
+  centerRing.position.set(center.x, 0.1, center.y);
+  centerRing.name = "CenterMarker";
+  group.add(centerRing);
+
+  return group;
+}
+
+/**
+ * Update compass rose position based on scene bounds
+ */
+export function updateCompassRose(
+  group: THREE.Group,
+  center: Point2D,
+  size: number
+): void {
+  // Remove existing children
+  while (group.children.length > 0) {
+    const child = group.children[0];
+    group.remove(child);
+    if (child instanceof THREE.Mesh) {
+      child.geometry?.dispose();
+      if (Array.isArray(child.material)) {
+        child.material.forEach(m => m.dispose());
+      } else {
+        child.material?.dispose();
+      }
+    }
+  }
+
+  // Recreate with new size
+  const newCompass = createCompassRose(center, size);
+  newCompass.children.forEach(child => {
+    group.add(child.clone());
+  });
+}

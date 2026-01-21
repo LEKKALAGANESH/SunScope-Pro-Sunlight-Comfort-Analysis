@@ -8,7 +8,7 @@
  * - North arrow always visible
  */
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useRef } from "react";
 
 export interface CompassWidgetProps {
   /** Camera azimuth angle in radians */
@@ -22,7 +22,7 @@ export interface CompassWidgetProps {
   /** Callback when compass is clicked to rotate */
   onRotateToNorth?: () => void;
   /** Callback to rotate to specific direction */
-  onRotateTo?: (direction: 'N' | 'S' | 'E' | 'W') => void;
+  onRotateTo?: (direction: "N" | "S" | "E" | "W") => void;
   /** Size of the compass in pixels */
   size?: number;
   /** Show sun indicator */
@@ -43,7 +43,7 @@ export function CompassWidget({
   size = 80,
   showSunIndicator = true,
   compact = false,
-  className = '',
+  className = "",
 }: CompassWidgetProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -55,7 +55,7 @@ export function CompassWidget({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
@@ -79,7 +79,7 @@ export function CompassWidget({
     // Draw outer ring
     ctx.beginPath();
     ctx.arc(0, 0, outerRadius, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
     ctx.lineWidth = 2;
     ctx.stroke();
 
@@ -93,32 +93,26 @@ export function CompassWidget({
       const startRadius = outerRadius - tickLength;
 
       ctx.beginPath();
-      ctx.moveTo(
-        Math.sin(angle) * startRadius,
-        -Math.cos(angle) * startRadius
-      );
-      ctx.lineTo(
-        Math.sin(angle) * outerRadius,
-        -Math.cos(angle) * outerRadius
-      );
+      ctx.moveTo(Math.sin(angle) * startRadius, -Math.cos(angle) * startRadius);
+      ctx.lineTo(Math.sin(angle) * outerRadius, -Math.cos(angle) * outerRadius);
       ctx.strokeStyle = isCardinal
-        ? 'rgba(255, 255, 255, 0.9)'
-        : 'rgba(255, 255, 255, 0.4)';
+        ? "rgba(255, 255, 255, 0.9)"
+        : "rgba(255, 255, 255, 0.4)";
       ctx.lineWidth = isCardinal ? 2 : 1;
       ctx.stroke();
     }
 
     // Draw cardinal direction labels
     const directions = [
-      { label: 'N', angle: 0, color: '#ef4444' },
-      { label: 'E', angle: 90, color: '#ffffff' },
-      { label: 'S', angle: 180, color: '#ffffff' },
-      { label: 'W', angle: 270, color: '#ffffff' },
+      { label: "N", angle: 0, color: "#ef4444" },
+      { label: "E", angle: 90, color: "#ffffff" },
+      { label: "S", angle: 180, color: "#ffffff" },
+      { label: "W", angle: 270, color: "#ffffff" },
     ];
 
     ctx.font = `bold ${compact ? 10 : 12}px system-ui`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
 
     directions.forEach(({ label, angle, color }) => {
       const rad = (angle * Math.PI) / 180;
@@ -138,7 +132,7 @@ export function CompassWidget({
     ctx.lineTo(0, -innerRadius + 5);
     ctx.lineTo(5, -innerRadius + arrowLength + 15);
     ctx.closePath();
-    ctx.fillStyle = '#ef4444';
+    ctx.fillStyle = "#ef4444";
     ctx.fill();
 
     // Restore context
@@ -159,24 +153,24 @@ export function CompassWidget({
       ctx.beginPath();
       ctx.arc(sunX, sunY, 6, 0, Math.PI * 2);
       const gradient = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, 6);
-      gradient.addColorStop(0, '#fbbf24');
-      gradient.addColorStop(1, '#f59e0b');
+      gradient.addColorStop(0, "#fbbf24");
+      gradient.addColorStop(1, "#f59e0b");
       ctx.fillStyle = gradient;
       ctx.fill();
 
       // Draw sun rays
-      ctx.strokeStyle = '#fbbf24';
+      ctx.strokeStyle = "#fbbf24";
       ctx.lineWidth = 1.5;
       for (let i = 0; i < 8; i++) {
         const rayAngle = (i * Math.PI) / 4;
         ctx.beginPath();
         ctx.moveTo(
           sunX + Math.cos(rayAngle) * 8,
-          sunY + Math.sin(rayAngle) * 8
+          sunY + Math.sin(rayAngle) * 8,
         );
         ctx.lineTo(
           sunX + Math.cos(rayAngle) * 11,
-          sunY + Math.sin(rayAngle) * 11
+          sunY + Math.sin(rayAngle) * 11,
         );
         ctx.stroke();
       }
@@ -187,9 +181,17 @@ export function CompassWidget({
     // Draw center dot
     ctx.beginPath();
     ctx.arc(center, center, 3, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
     ctx.fill();
-  }, [compassRotation, size, compact, showSunIndicator, sunAzimuth, sunAboveHorizon, northOffset]);
+  }, [
+    compassRotation,
+    size,
+    compact,
+    showSunIndicator,
+    sunAzimuth,
+    sunAboveHorizon,
+    northOffset,
+  ]);
 
   // Redraw on changes
   useEffect(() => {
@@ -211,14 +213,14 @@ export function CompassWidget({
 
     // Determine which direction was clicked
     if (degrees >= 315 || degrees < 45) {
-      onRotateTo?.('N');
+      onRotateTo?.("N");
       onRotateToNorth?.();
     } else if (degrees >= 45 && degrees < 135) {
-      onRotateTo?.('E');
+      onRotateTo?.("E");
     } else if (degrees >= 135 && degrees < 225) {
-      onRotateTo?.('S');
+      onRotateTo?.("S");
     } else {
-      onRotateTo?.('W');
+      onRotateTo?.("W");
     }
   };
 
@@ -247,7 +249,10 @@ export function CompassWidget({
             className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2
                        w-5 h-5 rounded-full bg-red-500/80 text-white text-[10px] font-bold
                        pointer-events-auto opacity-0 hover:opacity-100 transition-opacity"
-            onClick={() => { onRotateTo?.('N'); onRotateToNorth?.(); }}
+            onClick={() => {
+              onRotateTo?.("N");
+              onRotateToNorth?.();
+            }}
             title="Rotate to North"
           >
             N
@@ -256,7 +261,7 @@ export function CompassWidget({
             className="absolute top-1/2 right-0 translate-x-1/2 -translate-y-1/2
                        w-5 h-5 rounded-full bg-white/80 text-gray-800 text-[10px] font-bold
                        pointer-events-auto opacity-0 hover:opacity-100 transition-opacity"
-            onClick={() => onRotateTo?.('E')}
+            onClick={() => onRotateTo?.("E")}
             title="Rotate to East"
           >
             E
@@ -265,7 +270,7 @@ export function CompassWidget({
             className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2
                        w-5 h-5 rounded-full bg-white/80 text-gray-800 text-[10px] font-bold
                        pointer-events-auto opacity-0 hover:opacity-100 transition-opacity"
-            onClick={() => onRotateTo?.('S')}
+            onClick={() => onRotateTo?.("S")}
             title="Rotate to South"
           >
             S
@@ -274,7 +279,7 @@ export function CompassWidget({
             className="absolute top-1/2 left-0 -translate-x-1/2 -translate-y-1/2
                        w-5 h-5 rounded-full bg-white/80 text-gray-800 text-[10px] font-bold
                        pointer-events-auto opacity-0 hover:opacity-100 transition-opacity"
-            onClick={() => onRotateTo?.('W')}
+            onClick={() => onRotateTo?.("W")}
             title="Rotate to West"
           >
             W

@@ -98,8 +98,7 @@ export function DropZone() {
             const pdfResult = await processPdf(file);
             dataUrl = pdfResult.dataUrl;
             dimensions = { width: pdfResult.width, height: pdfResult.height };
-          } catch (pdfError) {
-            console.error('PDF processing error:', pdfError);
+          } catch {
             setError('Unable to process PDF. Please try converting it to an image first.');
             return;
           }
@@ -123,11 +122,7 @@ export function DropZone() {
           );
         }
 
-        // Check resolution warning
-        if (dimensions.width < MIN_RESOLUTION || dimensions.height < MIN_RESOLUTION) {
-          // We'll still allow it but show warning in validation step
-          console.warn('Low resolution image detected');
-        }
+        // Check resolution warning (allowed but shown in validation step)
 
         // Set image in store
         setImage({
@@ -136,8 +131,7 @@ export function DropZone() {
           height: dimensions.height,
           originalName: file.name,
         });
-      } catch (err) {
-        console.error('Error processing image:', err);
+      } catch {
         setError('Unable to read this file. Please try a different image.');
       } finally {
         setIsProcessing(false);
@@ -199,8 +193,7 @@ export function DropZone() {
 
     try {
       loadSampleProject(projectId);
-    } catch (err) {
-      console.error('Error loading sample:', err);
+    } catch {
       setError('Failed to load sample project');
     } finally {
       // Small delay to show loading state

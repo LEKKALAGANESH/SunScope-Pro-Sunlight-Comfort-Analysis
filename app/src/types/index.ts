@@ -183,6 +183,13 @@ export interface DisplaySettings {
   showFloorLabels: boolean;
   showShadowHeatmap: boolean;
   heatmapOpacity: number; // 0-1
+  shadowIntensity: number; // 0.3-1.0, controls how dark shadows appear
+  buildingHeightScale: number; // 1.0-3.0, multiplier to make buildings appear taller
+  // Enhanced shadow visualization
+  shadowVisualizationMode: 'natural' | 'enhanced' | 'analysis'; // Shadow display mode
+  // 'natural' - realistic shadows with dynamic softness
+  // 'enhanced' - higher contrast shadows for clearer visibility
+  // 'analysis' - color-coded shadow visualization (blue=sun, red=shadow)
 }
 
 // Measurement type for distance tool

@@ -18,6 +18,13 @@ import {
 } from "../../lib/geometry";
 // Phase 1: Enhanced camera controls
 import { CameraController, type SceneBounds } from "./utils/cameraController";
+// V2: Dynamic environment lighting based on time of day
+import {
+  calculateEnvironmentLighting,
+  applyEnvironmentLighting,
+  getTimePhase,
+  type EnvironmentLighting,
+} from "./utils/environmentLighting";
 
 interface SunPositionInfo {
   altitude: number; // degrees
@@ -144,8 +151,8 @@ function calculateSceneBounds(
       maxZ = Math.max(maxZ, centroid.y);
 
       maxHeight = Math.max(maxHeight, building.totalHeight);
-    } catch (error) {
-      console.error(`Failed to transform building ${building.name} for bounds:`, error);
+    } catch {
+      // Skip invalid building for bounds calculation
     }
   });
 
@@ -190,6 +197,9 @@ export const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(function Scene3D(
   // Phase 1: Enhanced camera controller
   const cameraControllerRef = useRef<CameraController | null>(null);
   const sunLightRef = useRef<THREE.DirectionalLight | null>(null);
+  // V2: Refs for dynamic environment lighting
+  const ambientLightRef = useRef<THREE.AmbientLight | null>(null);
+  const hemiLightRef = useRef<THREE.HemisphereLight | null>(null);
   // Store scene bounds for external access
   const sceneBoundsRef = useRef<SceneBounds>({ center: { x: 0, y: 0 }, size: 200, maxHeight: 50 });
   const groundRef = useRef<THREE.Mesh | null>(null);
@@ -335,9 +345,9 @@ export const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(function Scene3D(
     const width = container.clientWidth;
     const height = container.clientHeight;
 
-    // Scene
+    // Scene with soft sky gradient background
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87ceeb); // Sky blue
+    scene.background = new THREE.Color(0xE8F4FC); // Soft pale blue - professional sky
     sceneRef.current = scene;
 
     // Camera - position will be adjusted based on scene bounds
@@ -376,11 +386,12 @@ export const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(function Scene3D(
     cameraControllerRef.current = cameraController;
     const controls = cameraController.getControls();
 
-    // Ground plane - will be sized based on scene (large initial size)
+    // Ground plane - neutral light gray that shows shadows clearly
+    // Light enough to contrast with pastel buildings, but not white
     const groundGeo = new THREE.PlaneGeometry(10000, 10000);
     const groundMat = new THREE.MeshStandardMaterial({
-      color: 0x8fbc8f, // Lighter green for grass
-      roughness: 0.9,
+      color: 0xE8E8E8, // Light neutral gray - perfect for shadow visibility
+      roughness: 0.85,
       metalness: 0,
     });
     const ground = new THREE.Mesh(groundGeo, groundMat);
@@ -389,8 +400,8 @@ export const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(function Scene3D(
     scene.add(ground);
     groundRef.current = ground;
 
-    // Grid helper (large initial size)
-    const gridHelper = new THREE.GridHelper(5000, 200, 0x888888, 0x666666);
+    // Grid helper - subtle lines for spatial reference
+    const gridHelper = new THREE.GridHelper(5000, 200, 0xC0C0C0, 0xD8D8D8);
     gridHelper.position.y = 0.1;
     scene.add(gridHelper);
     gridRef.current = gridHelper;
@@ -402,7 +413,6 @@ export const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(function Scene3D(
     originMarker.position.set(0, 3, 0); // Slightly above ground
     originMarker.name = 'OriginMarker';
     scene.add(originMarker);
-    console.log('[Scene3D] DEBUG: Added red origin marker at (0, 3, 0) - this represents image center');
 
     // Measurement visualization group
     const measurementGroup = new THREE.Group();
@@ -424,24 +434,32 @@ export const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(function Scene3D(
     scene.add(heatmapMesh);
     heatmapMeshRef.current = heatmapMesh;
 
-    // Ambient light - softer for more realistic lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+    // Ambient light - low intensity preserves shadow contrast on pastel colors
+    // V2: Store ref for dynamic environment lighting updates
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.25);
     scene.add(ambientLight);
+    ambientLightRef.current = ambientLight;
 
-    // Hemisphere light - sky/ground
-    const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x8fbc8f, 0.4);
+    // Hemisphere light - subtle sky/ground gradient for natural fill
+    // Cool sky color and warm ground color enhance building depth
+    // V2: Store ref for dynamic environment lighting updates
+    const hemiLight = new THREE.HemisphereLight(0xB4D4E8, 0xE8E0D4, 0.35);
     scene.add(hemiLight);
+    hemiLightRef.current = hemiLight;
 
-    // Directional light (sun) - enhanced shadow settings
-    const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    // Directional light (sun) - strong for clear shadow definition
+    // V2: Enhanced shadow settings for building-to-building shadows
+    // Higher intensity ensures shadows are clearly visible on light pastel colors
+    const sunLight = new THREE.DirectionalLight(0xFFFAF0, 1.4); // Warm white
     sunLight.position.set(100, 200, 100);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 4096;
     sunLight.shadow.mapSize.height = 4096;
-    sunLight.shadow.camera.near = 1;
+    sunLight.shadow.camera.near = 0.5;
     sunLight.shadow.camera.far = 5000;
-    sunLight.shadow.bias = -0.0001;
-    sunLight.shadow.normalBias = 0.02;
+    sunLight.shadow.bias = -0.001;       // Prevents shadow acne
+    sunLight.shadow.normalBias = 0;      // MUST be 0 for shadows on vertical walls
+    sunLight.shadow.radius = 1.5;        // V2: Soft shadow edges for natural look
     scene.add(sunLight);
     // IMPORTANT: Add sun light target to scene for shadows to work correctly
     scene.add(sunLight.target);
@@ -660,28 +678,20 @@ export const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(function Scene3D(
       target: new THREE.Vector3(center.x, maxHeight / 2, center.y),
     });
 
-    // Debug logging
-    console.log('📷 Camera Update:');
-    console.log(`   Scene center: (${center.x.toFixed(2)}, ${center.y.toFixed(2)})`);
-    console.log(`   Scene size: ${size.toFixed(2)}m`);
-    console.log(`   Max height: ${maxHeight.toFixed(2)}m`);
-    console.log(`   Camera distance: ${cameraDistance.toFixed(2)}m`);
-    console.log(`   Camera height: ${cameraHeight.toFixed(2)}m`);
-    console.log(`   Camera position: (${cameraRef.current.position.x.toFixed(2)}, ${cameraRef.current.position.y.toFixed(2)}, ${cameraRef.current.position.z.toFixed(2)})`);
-    console.log(`   Camera target: (${controls.target.x.toFixed(2)}, ${controls.target.y.toFixed(2)}, ${controls.target.z.toFixed(2)})`);
-
     // Update shadow camera frustum to cover all buildings with generous margin
+    // Must account for tall buildings (15+ floors = ~50m height)
     const shadowSize = Math.max(size * 2, 1000);
+    const heightMargin = Math.max(maxHeight * 2, 200); // Extra margin for tall buildings
     sunLightRef.current.shadow.camera.left = -shadowSize;
     sunLightRef.current.shadow.camera.right = shadowSize;
     sunLightRef.current.shadow.camera.top = shadowSize;
     sunLightRef.current.shadow.camera.bottom = -shadowSize;
     sunLightRef.current.shadow.camera.near = 0.5;
-    sunLightRef.current.shadow.camera.far = shadowSize * 6;
+    sunLightRef.current.shadow.camera.far = Math.max(shadowSize * 6, heightMargin * 10);
     sunLightRef.current.shadow.camera.updateProjectionMatrix();
 
-    // Update sun light target position to scene center
-    sunLightRef.current.target.position.set(center.x, 0, center.y);
+    // Update sun light target position - target mid-height for better shadow coverage on buildings
+    sunLightRef.current.target.position.set(center.x, maxHeight / 3, center.y);
     sunLightRef.current.target.updateMatrixWorld();
 
     // Calculate site plan size in meters (based on image dimensions)
@@ -733,9 +743,6 @@ export const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(function Scene3D(
       newGrid.position.set(0, 0.1, 0); // At world origin
       sceneRef.current.add(newGrid);
       gridRef.current = newGrid;
-
-      console.log(`[Scene3D] Grid updated: siteSize=${siteSize.toFixed(0)}m, gridSize=${gridSize.toFixed(0)}m, divisions=${divisions}`);
-      console.log(`[Scene3D] Buildings center: (${center.x.toFixed(2)}, ${center.y.toFixed(2)})`);
     }
 
     // Update north arrow position - place at corner of scene (relative to ORIGIN)
@@ -794,33 +801,12 @@ export const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(function Scene3D(
     const existingGroups = buildingMeshesRef.current;
     const newGroups = new Map<string, THREE.Object3D>();
 
-    // Diagnostic logging
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('🏗️ Building Creation Pipeline Starting...');
-    console.log(`   Buildings in store: ${buildings.length}`);
-    console.log(`   Image loaded: ${project.image ? 'Yes' : 'No'}`);
-    if (project.image) {
-      console.log(`   Image dimensions: ${project.image.width}x${project.image.height} pixels`);
-      console.log(`   Image center: (${project.image.width/2}, ${project.image.height/2}) px`);
-    }
-    console.log(`   Scale: ${site.scale} m/px`);
-    console.log(`   North angle: ${site.northAngle}°`);
-    if (project.image) {
-      const siteWidthMeters = project.image.width * site.scale;
-      const siteHeightMeters = project.image.height * site.scale;
-      console.log(`   Site dimensions: ${siteWidthMeters.toFixed(1)}m x ${siteHeightMeters.toFixed(1)}m`);
-    }
-
     // Validate image dimensions are available
     if (!project.image || !project.image.width || !project.image.height) {
-      console.error('[Scene3D] ❌ Cannot create buildings - image dimensions not available');
-      console.error('   This happens when: 1) No image uploaded, 2) Page refreshed (image not persisted), 3) Sample project not fully loaded');
       return;
     }
 
     if (buildings.length === 0) {
-      console.warn('[Scene3D] ⚠️ No buildings to render - buildings array is empty');
-      console.warn('   Import buildings from the detection preview or draw them in the editor');
       return;
     }
 
@@ -871,73 +857,29 @@ export const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(function Scene3D(
       // Validate footprint before transformation
       const validation = validateFootprint(building.footprint, 'image');
       if (!validation.valid) {
-        console.error(`[Scene3D NEW] Building "${building.name}" has invalid footprint:`, validation.errors);
         return; // Skip this building
-      }
-
-      if (validation.warnings.length > 0) {
-        console.warn(`[Scene3D NEW] Building "${building.name}" warnings:`, validation.warnings);
       }
 
       try {
         // STAGE 1 & 2: Transform footprint from Image Space → World Space → Local Space
         const transformResult = transformFootprint(building.footprint, siteConfig);
-        const { worldFootprint, localFootprint, centroid } = transformResult.data;
-
-        // Debug logging
-        console.group(`🏢 Building Projection: ${building.name}`);
-
-        // Image footprint bounds (pixels)
-        const imgMinX = Math.min(...building.footprint.map(p => p.x));
-        const imgMaxX = Math.max(...building.footprint.map(p => p.x));
-        const imgMinY = Math.min(...building.footprint.map(p => p.y));
-        const imgMaxY = Math.max(...building.footprint.map(p => p.y));
-        const imgCenterX = (imgMinX + imgMaxX) / 2;
-        const imgCenterY = (imgMinY + imgMaxY) / 2;
-
-        console.log('📐 Image footprint (pixels):', building.footprint.length, 'points');
-        console.log(`   Bounds: X[${imgMinX.toFixed(0)} - ${imgMaxX.toFixed(0)}], Y[${imgMinY.toFixed(0)} - ${imgMaxY.toFixed(0)}]`);
-        console.log(`   Center: (${imgCenterX.toFixed(0)}, ${imgCenterY.toFixed(0)}) px`);
-        console.log(`   Image center is: (${siteConfig.imageWidth/2}, ${siteConfig.imageHeight/2}) px`);
-        console.log(`   Offset from image center: (${(imgCenterX - siteConfig.imageWidth/2).toFixed(0)}, ${(imgCenterY - siteConfig.imageHeight/2).toFixed(0)}) px`);
-
-        console.log('🌍 World footprint (meters):', worldFootprint.length, 'points');
-        console.log('  First point:', worldFootprint[0]);
-        console.log('📦 Local footprint (centered):', localFootprint.length, 'points');
-        console.log('  First point:', localFootprint[0]);
-        console.log(`📍 World centroid (3D position): X=${centroid.x.toFixed(2)}m, Z=${centroid.y.toFixed(2)}m`);
-
-        // Check if centroid is within expected site bounds
-        const halfSiteWidth = (siteConfig.imageWidth * site.scale) / 2;
-        const halfSiteHeight = (siteConfig.imageHeight * site.scale) / 2;
-        const inBounds = Math.abs(centroid.x) <= halfSiteWidth && Math.abs(centroid.y) <= halfSiteHeight;
-        console.log(`📏 Expected site bounds: X[${(-halfSiteWidth).toFixed(1)} to ${halfSiteWidth.toFixed(1)}m], Z[${(-halfSiteHeight).toFixed(1)} to ${halfSiteHeight.toFixed(1)}m]`);
-        console.log(`   Building in bounds: ${inBounds ? '✅ Yes' : '❌ No'}`);
-
-        // Manual verification: Calculate expected world position without rotation
-        const expectedWorldX = (imgCenterX - siteConfig.imageWidth/2) * site.scale;
-        const expectedWorldZ = (imgCenterY - siteConfig.imageHeight/2) * site.scale;
-        console.log(`🎯 Expected world position (no rotation): X=${expectedWorldX.toFixed(2)}m, Z=${expectedWorldZ.toFixed(2)}m`);
-        console.log(`   Actual centroid: X=${centroid.x.toFixed(2)}m, Z=${centroid.y.toFixed(2)}m`);
-        if (site.northAngle !== 0) {
-          console.log(`   Note: Rotation of ${site.northAngle}° is applied, so actual position differs from expected`);
-        }
-
-        console.log('🔧 Site config:', `scale=${site.scale}m/px, north=${site.northAngle}°`);
-        console.log('📏 Building height:', `${building.floors} floors × ${building.floorHeight}m = ${building.floors * building.floorHeight}m`);
+        const { localFootprint, centroid } = transformResult.data;
 
         // STAGE 3: Create mesh using ROBUST builder
         const isSelected = building.id === analysis.selectedBuildingId;
-        console.log('🔨 Creating mesh with robust triangulation...');
+
+        // V2: Apply building height scale for visual impact
+        const heightScale = displaySettings?.buildingHeightScale ?? 1.5;
+        const scaledFloorHeight = building.floorHeight * heightScale;
 
         const meshResult = createRobustBuildingMesh(localFootprint, {
           color: building.color,
           floors: building.floors,
-          floorHeight: building.floorHeight,
+          floorHeight: scaledFloorHeight,
           showFloorDivisions: true,
           isSelected,
           selectedFloor: isSelected ? analysis.selectedFloor : undefined,
-          floorOpacity: displaySettings?.floorTransparency ?? 0.8,
+          floorOpacity: displaySettings?.floorTransparency ?? 1,
           castShadow: true,
           receiveShadow: true,
           validateInput: true,
@@ -947,27 +889,12 @@ export const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(function Scene3D(
 
         const mesh = meshResult.mesh;
 
-        // Log validation results
-        if (meshResult.validation.warnings.length > 0) {
-          console.warn(`⚠️  Validation warnings for ${building.name}:`, meshResult.validation.warnings);
-        }
-
-        console.log('✅ Mesh created:', mesh.name, 'children:', mesh.children.length);
-        console.log(`   Triangles: ${meshResult.triangulation.triangleCount}`);
-        console.log(`   Vertices: ${meshResult.validation.metadata.normalizedVertexCount}`);
-
         // STAGE 4: Position mesh in world space
         mesh.position.set(
           centroid.x,   // World X
           0,            // Ground level (Y=0)
           centroid.y    // World Z (centroid.y is Z in XZ plane)
         );
-
-        console.log('📌 Mesh positioned at:', `(${mesh.position.x.toFixed(2)}, ${mesh.position.y.toFixed(2)}, ${mesh.position.z.toFixed(2)})`);
-
-        // Add to scene
-        scene.add(mesh);
-        console.log('✅ Added to scene. Total scene children:', scene.children.length);
 
         // Highlight selected building
         if (isSelected && !analysis.selectedFloor) {
@@ -981,24 +908,31 @@ export const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(function Scene3D(
           });
         }
 
-        newGroups.set(building.id, mesh);
-        console.groupEnd();
+        // V2: Create billboard building name label (using scaled height)
+        const scaledTotalHeight = building.totalHeight * heightScale;
+        const buildingLabel = createBuildingLabel(
+          building.name,
+          new THREE.Vector3(centroid.x, 0, centroid.y),
+          scaledTotalHeight,
+          isSelected
+        );
 
-      } catch (error) {
-        console.error(`[Scene3D NEW] Failed to create building "${building.name}":`, error);
-        console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack');
-        console.groupEnd();
+        // Create a group to hold both mesh and label for proper organization and cleanup
+        const buildingGroup = new THREE.Group();
+        buildingGroup.name = `BuildingGroup_${building.id}`;
+        buildingGroup.userData.buildingId = building.id;
+        buildingGroup.add(mesh);
+        buildingGroup.add(buildingLabel);
+
+        // Add group to scene
+        scene.add(buildingGroup);
+
+        newGroups.set(building.id, buildingGroup);
+
+      } catch {
+        // Skip failed building
       }
     });
-
-    // Summary logging
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📊 Building Creation Summary:');
-    console.log(`   Total buildings: ${buildings.length}`);
-    console.log(`   Successfully created: ${newGroups.size}`);
-    console.log(`   Failed: ${buildings.length - newGroups.size}`);
-    console.log(`   Scene children count: ${scene.children.length}`);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     buildingMeshesRef.current = newGroups;
 
@@ -1014,6 +948,7 @@ export const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(function Scene3D(
     analysis.selectedFloor,
     project.image,
     displaySettings?.floorTransparency,
+    displaySettings?.buildingHeightScale,
     onBuildingMeshesUpdate,
   ]);
 
@@ -1147,6 +1082,36 @@ export const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(function Scene3D(
       }
     };
   }, []);
+
+  // V2: Dynamic environment lighting based on sun altitude
+  // Updates sky color, ambient light, hemisphere light, and sun color based on time of day
+  useEffect(() => {
+    if (!sceneRef.current || !sunLightRef.current || !ambientLightRef.current || !hemiLightRef.current) {
+      return;
+    }
+
+    const { latitude, longitude } = site.location;
+    const sunPosition = SunCalc.getPosition(currentTime, latitude, longitude);
+    const sunAltitudeDegrees = (sunPosition.altitude * 180) / Math.PI;
+
+    // Calculate environment lighting based on sun altitude
+    const lighting = calculateEnvironmentLighting(sunAltitudeDegrees);
+
+    // Apply lighting to scene
+    applyEnvironmentLighting(
+      sceneRef.current,
+      lighting,
+      ambientLightRef.current,
+      hemiLightRef.current,
+      sunLightRef.current
+    );
+
+    // Update ground plane color to match environment
+    if (groundRef.current && groundRef.current.material instanceof THREE.MeshStandardMaterial) {
+      groundRef.current.material.color.copy(lighting.groundColor);
+    }
+
+  }, [currentTime, site.location.latitude, site.location.longitude]);
 
   // Update section cut (clipping plane)
   useEffect(() => {
@@ -1443,6 +1408,72 @@ export const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(function Scene3D(
     sceneBounds,
     currentTime,
   ]);
+
+  // Update shadow intensity and visualization mode
+  // Controls shadow darkness, softness, and overall visual appearance
+  useEffect(() => {
+    if (!sceneRef.current || !sunLightRef.current) return;
+
+    const shadowIntensity = displaySettings?.shadowIntensity ?? 0.7;
+    const visualizationMode = displaySettings?.shadowVisualizationMode ?? 'natural';
+
+    // Apply mode-specific shadow settings
+    // CRITICAL: normalBias MUST be 0 for shadows to appear on vertical walls
+    switch (visualizationMode) {
+      case 'enhanced':
+        // Higher contrast shadows - sharper edges, darker appearance
+        sunLightRef.current.shadow.radius = 0.5; // Sharp shadows
+        sunLightRef.current.shadow.bias = -0.001;
+        sunLightRef.current.shadow.normalBias = 0; // MUST be 0 for wall shadows
+        // Increase sun intensity for better contrast
+        if (sunLightRef.current.intensity > 0.2) {
+          sunLightRef.current.intensity = Math.min(sunLightRef.current.intensity * 1.2, 2.0);
+        }
+        break;
+
+      case 'analysis':
+        // Analysis mode - shadows handled by heatmap overlay
+        sunLightRef.current.shadow.radius = 1.0;
+        sunLightRef.current.shadow.bias = -0.001;
+        sunLightRef.current.shadow.normalBias = 0; // MUST be 0 for wall shadows
+        break;
+
+      case 'natural':
+      default:
+        // Natural mode - dynamic softness handled by environmentLighting
+        sunLightRef.current.shadow.bias = -0.001;
+        sunLightRef.current.shadow.normalBias = 0; // MUST be 0 for wall shadows
+        break;
+    }
+
+    // Find and update ambient light in scene
+    // Higher shadow intensity = lower ambient light = darker shadows
+    // Enhanced mode gets even darker shadows for maximum contrast
+    const modeMultiplier = visualizationMode === 'enhanced' ? 0.4 : 0.3;
+    const ambientIntensity = 0.5 - (shadowIntensity * modeMultiplier);
+
+    sceneRef.current.traverse((child) => {
+      if (child instanceof THREE.AmbientLight) {
+        child.intensity = Math.max(0.1, ambientIntensity);
+      }
+    });
+
+    // Update building materials for enhanced shadow reception
+    if (visualizationMode === 'enhanced') {
+      buildingMeshesRef.current.forEach((obj) => {
+        obj.traverse((child) => {
+          if (
+            child instanceof THREE.Mesh &&
+            child.material instanceof THREE.MeshStandardMaterial
+          ) {
+            // Increase roughness slightly for better shadow definition
+            child.material.roughness = Math.min(0.6, child.material.roughness + 0.1);
+            child.material.needsUpdate = true;
+          }
+        });
+      });
+    }
+  }, [displaySettings?.shadowIntensity, displaySettings?.shadowVisualizationMode]);
 
   return (
     <div
@@ -2109,7 +2140,9 @@ function createSeasonLabel(text: string, color: number): THREE.Sprite {
 
 /**
  * Update the cardinal direction labels (N, S, E, W)
+ * V2: Enhanced with compass rose and fixed world-space positioning
  * Creates 3D sprites positioned at the edges of the scene
+ * Sprites billboard to always face the camera for readability
  */
 function updateCardinalDirections(
   group: THREE.Group,
@@ -2122,67 +2155,252 @@ function updateCardinalDirections(
     if (child instanceof THREE.Sprite) {
       if (child.material.map) child.material.map.dispose();
       child.material.dispose();
+    } else if (child instanceof THREE.Line) {
+      child.geometry?.dispose();
+      if (child.material instanceof THREE.Material) {
+        child.material.dispose();
+      }
+    } else if (child instanceof THREE.Mesh) {
+      child.geometry?.dispose();
+      if (child.material instanceof THREE.Material) {
+        child.material.dispose();
+      }
     }
     group.remove(child);
   }
 
+  // Push direction labels FAR outside the building area to avoid obstructing view
+  const offset = sceneSize * 0.85; // Much further out from center
+  const labelSize = Math.max(sceneSize * 0.06, 18); // Slightly smaller to not dominate view
+
+  // V2: Enhanced cardinal direction markers with better styling
+  // Positioned at far edges of the scene, at ground level
   const directions = [
     {
       label: "N",
       x: center.x,
-      z: center.y - sceneSize * 0.55,
-      color: "#ef4444",
-    }, // North (red) - negative Z
+      z: center.y - offset,
+      color: "#DC2626",       // Red for North
+      bgColor: "#FEF2F2",
+      isNorth: true,
+    },
     {
       label: "S",
       x: center.x,
-      z: center.y + sceneSize * 0.55,
-      color: "#9ca3af",
-    }, // South - positive Z
+      z: center.y + offset,
+      color: "#1F2937",       // Dark gray
+      bgColor: "#F9FAFB",
+      isNorth: false,
+    },
     {
       label: "E",
-      x: center.x + sceneSize * 0.55,
+      x: center.x + offset,
       z: center.y,
-      color: "#9ca3af",
-    }, // East - positive X
+      color: "#1F2937",
+      bgColor: "#F9FAFB",
+      isNorth: false,
+    },
     {
       label: "W",
-      x: center.x - sceneSize * 0.55,
+      x: center.x - offset,
       z: center.y,
-      color: "#9ca3af",
-    }, // West - negative X
+      color: "#1F2937",
+      bgColor: "#F9FAFB",
+      isNorth: false,
+    },
   ];
 
-  const labelSize = Math.max(sceneSize * 0.08, 20);
-
-  directions.forEach(({ label, x, z, color }) => {
-    // Create canvas for the label
+  directions.forEach(({ label, x, z, color, bgColor, isNorth }) => {
     const canvas = document.createElement("canvas");
-    canvas.width = 64;
-    canvas.height = 64;
+    canvas.width = 128;
+    canvas.height = 128;
     const ctx = canvas.getContext("2d")!;
 
-    // Draw background circle
-    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+    // Background circle with shadow effect
+    ctx.shadowColor = "rgba(0, 0, 0, 0.2)";
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 2;
+
     ctx.beginPath();
-    ctx.arc(32, 32, 28, 0, Math.PI * 2);
+    ctx.arc(64, 64, 52, 0, Math.PI * 2);
+    ctx.fillStyle = bgColor;
     ctx.fill();
+
+    // Reset shadow for border
+    ctx.shadowColor = "transparent";
+    ctx.strokeStyle = color;
+    ctx.lineWidth = isNorth ? 8 : 4;
+    ctx.stroke();
 
     // Draw label
     ctx.fillStyle = color;
-    ctx.font = "bold 36px Arial";
+    ctx.font = isNorth ? "bold 72px Arial" : "bold 60px Arial";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(label, 32, 32);
+    ctx.fillText(label, 64, 64);
 
     const texture = new THREE.CanvasTexture(canvas);
     const material = new THREE.SpriteMaterial({
       map: texture,
       transparent: true,
+      depthTest: true, // Enable depth test so labels go behind buildings
     });
     const sprite = new THREE.Sprite(material);
-    sprite.position.set(x, 5, z); // Slightly above ground
+    sprite.position.set(x, 2.5, z); // At ground level, not floating
     sprite.scale.set(labelSize, labelSize, 1);
+    sprite.renderOrder = 1; // Lower render order - behind buildings
+    sprite.name = `Cardinal_${label}`;
     group.add(sprite);
   });
+
+  // V2: Compass rose at center
+  const compassSize = sceneSize * 0.04;
+
+  // North arrow on compass
+  const arrowPoints: THREE.Vector3[] = [
+    new THREE.Vector3(center.x, 0.3, center.y - compassSize * 2),
+    new THREE.Vector3(center.x - compassSize * 0.5, 0.3, center.y - compassSize * 0.5),
+    new THREE.Vector3(center.x, 0.3, center.y - compassSize),
+    new THREE.Vector3(center.x + compassSize * 0.5, 0.3, center.y - compassSize * 0.5),
+    new THREE.Vector3(center.x, 0.3, center.y - compassSize * 2),
+  ];
+  const arrowGeometry = new THREE.BufferGeometry().setFromPoints(arrowPoints);
+  const arrowMaterial = new THREE.LineBasicMaterial({ color: 0xDC2626 });
+  const northArrow = new THREE.Line(arrowGeometry, arrowMaterial);
+  northArrow.name = "CompassNorthArrow";
+  group.add(northArrow);
+
+  // Compass cross lines
+  const crossMaterial = new THREE.LineBasicMaterial({
+    color: 0x9CA3AF,
+    transparent: true,
+    opacity: 0.5,
+  });
+
+  // N-S axis line (full length to direction markers)
+  const nsPoints = [
+    new THREE.Vector3(center.x, 0.2, center.y - offset + labelSize * 0.6),
+    new THREE.Vector3(center.x, 0.2, center.y + offset - labelSize * 0.6),
+  ];
+  const nsGeometry = new THREE.BufferGeometry().setFromPoints(nsPoints);
+  const nsLine = new THREE.Line(nsGeometry, crossMaterial);
+  nsLine.name = "NS_Axis";
+  group.add(nsLine);
+
+  // E-W axis line
+  const ewPoints = [
+    new THREE.Vector3(center.x - offset + labelSize * 0.6, 0.2, center.y),
+    new THREE.Vector3(center.x + offset - labelSize * 0.6, 0.2, center.y),
+  ];
+  const ewGeometry = new THREE.BufferGeometry().setFromPoints(ewPoints);
+  const ewLine = new THREE.Line(ewGeometry, crossMaterial);
+  ewLine.name = "EW_Axis";
+  group.add(ewLine);
+
+  // Center circle (compass rose center)
+  const centerRingGeo = new THREE.RingGeometry(compassSize * 0.4, compassSize * 0.6, 32);
+  const centerRingMat = new THREE.MeshBasicMaterial({
+    color: 0x9CA3AF,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.5,
+  });
+  const centerRing = new THREE.Mesh(centerRingGeo, centerRingMat);
+  centerRing.rotation.x = -Math.PI / 2;
+  centerRing.position.set(center.x, 0.25, center.y);
+  centerRing.name = "CompassCenter";
+  group.add(centerRing);
+}
+
+/**
+ * V2: Create billboard building name label
+ * Sprite that always faces the camera for maximum readability
+ */
+function createBuildingLabel(
+  name: string,
+  position: THREE.Vector3,
+  buildingHeight: number,
+  isSelected: boolean = false
+): THREE.Sprite {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 64;
+  const ctx = canvas.getContext("2d")!;
+
+  // Background with rounded corners
+  const bgColor = isSelected ? "rgba(245, 158, 11, 0.95)" : "rgba(255, 255, 255, 0.92)";
+  const borderColor = isSelected ? "#D97706" : "#6B7280";
+  const textColor = isSelected ? "#FFFFFF" : "#1F2937";
+
+  // Shadow effect
+  ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
+  ctx.shadowBlur = 6;
+  ctx.shadowOffsetX = 2;
+  ctx.shadowOffsetY = 2;
+
+  // Rounded rectangle background
+  const radius = 12;
+  const padding = 8;
+  ctx.beginPath();
+  ctx.moveTo(padding + radius, padding);
+  ctx.lineTo(canvas.width - padding - radius, padding);
+  ctx.quadraticCurveTo(canvas.width - padding, padding, canvas.width - padding, padding + radius);
+  ctx.lineTo(canvas.width - padding, canvas.height - padding - radius);
+  ctx.quadraticCurveTo(canvas.width - padding, canvas.height - padding, canvas.width - padding - radius, canvas.height - padding);
+  ctx.lineTo(padding + radius, canvas.height - padding);
+  ctx.quadraticCurveTo(padding, canvas.height - padding, padding, canvas.height - padding - radius);
+  ctx.lineTo(padding, padding + radius);
+  ctx.quadraticCurveTo(padding, padding, padding + radius, padding);
+  ctx.closePath();
+
+  ctx.fillStyle = bgColor;
+  ctx.fill();
+
+  // Border
+  ctx.shadowColor = "transparent";
+  ctx.strokeStyle = borderColor;
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Building name text
+  ctx.fillStyle = textColor;
+  ctx.font = "bold 28px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  // Truncate long names
+  let displayName = name;
+  const maxWidth = canvas.width - 40;
+  while (ctx.measureText(displayName).width > maxWidth && displayName.length > 3) {
+    displayName = displayName.slice(0, -1);
+  }
+  if (displayName !== name) {
+    displayName += "...";
+  }
+
+  ctx.fillText(displayName, canvas.width / 2, canvas.height / 2);
+
+  // Create sprite
+  const texture = new THREE.CanvasTexture(canvas);
+  const material = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: true,
+    sizeAttenuation: true,
+  });
+
+  const sprite = new THREE.Sprite(material);
+
+  // Position above the building
+  sprite.position.set(position.x, buildingHeight + 5, position.z);
+
+  // Scale based on name length (adaptive sizing)
+  const baseScale = 12;
+  const aspectRatio = canvas.width / canvas.height;
+  sprite.scale.set(baseScale * aspectRatio, baseScale, 1);
+
+  sprite.name = `BuildingLabel_${name}`;
+
+  return sprite;
 }

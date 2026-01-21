@@ -138,8 +138,8 @@ export function DebugOverlay({
           boxHelper.name = `BBox_${building.name}`;
           debugGroup.add(boxHelper);
         }
-      } catch (error) {
-        console.error(`[DebugOverlay] Failed to create debug viz for ${building.name}:`, error);
+      } catch {
+        // Skip failed building debug viz
       }
     });
 

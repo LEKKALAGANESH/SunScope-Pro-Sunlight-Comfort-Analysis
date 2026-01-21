@@ -582,3 +582,103 @@ export function runAnalysis(
   );
   return engine.analyze(date);
 }
+
+/**
+ * Floor analysis result for a single floor
+ */
+export interface FloorAnalysis {
+  floor: number;
+  sunlightHours: number;
+  directHours: number;
+  comfortScore: number;
+  riskLevel: 'low' | 'medium' | 'high';
+  firstSunTime: Date | null;
+  lastSunTime: Date | null;
+}
+
+/**
+ * Result of analyzing all floors in a building
+ */
+export interface BuildingFloorAnalysis {
+  buildingId: string;
+  buildingName: string;
+  floors: FloorAnalysis[];
+  bestFloor: number;
+  bestFloorReason: string;
+  worstFloor: number;
+  averageSunlightHours: number;
+}
+
+/**
+ * Analyze all floors of a building and recommend the best floor
+ * This is the core function for floor-level decision support
+ */
+export function analyzeAllFloors(
+  date: Date,
+  location: Location,
+  buildings: Building[],
+  targetBuildingId: string,
+  scenario?: Scenario
+): BuildingFloorAnalysis | null {
+  const building = buildings.find(b => b.id === targetBuildingId);
+  if (!building) return null;
+
+  const floorResults: FloorAnalysis[] = [];
+
+  // Analyze each floor
+  for (let floor = 1; floor <= building.floors; floor++) {
+    const engine = new AnalysisEngine(
+      location,
+      buildings,
+      targetBuildingId,
+      floor,
+      scenario
+    );
+    const results = engine.analyze(date);
+
+    floorResults.push({
+      floor,
+      sunlightHours: results.sunlight.totalHours,
+      directHours: results.sunlight.directHours,
+      comfortScore: results.comfort.score,
+      riskLevel: results.comfort.riskLevel,
+      firstSunTime: results.sunlight.firstSunTime,
+      lastSunTime: results.sunlight.lastSunTime,
+    });
+  }
+
+  // Find best floor based on comfort score (balanced sunlight)
+  // Ideal is moderate sunlight (4-6 hours) with good comfort score
+  const sortedByComfort = [...floorResults].sort((a, b) => b.comfortScore - a.comfortScore);
+  const bestFloor = sortedByComfort[0];
+  const worstFloor = sortedByComfort[sortedByComfort.length - 1];
+
+  // Calculate average sunlight hours
+  const avgSunlight = floorResults.reduce((sum, f) => sum + f.sunlightHours, 0) / floorResults.length;
+
+  // Generate reason for best floor recommendation
+  let bestFloorReason = '';
+  if (bestFloor.comfortScore >= 70) {
+    if (bestFloor.sunlightHours >= 4 && bestFloor.sunlightHours <= 6) {
+      bestFloorReason = `Ideal sunlight (${bestFloor.sunlightHours.toFixed(1)} hrs) with excellent comfort`;
+    } else if (bestFloor.sunlightHours > 6) {
+      bestFloorReason = `Good comfort despite high sunlight (${bestFloor.sunlightHours.toFixed(1)} hrs)`;
+    } else {
+      bestFloorReason = `Best comfort score (${bestFloor.comfortScore}) with adequate light`;
+    }
+  } else if (bestFloor.comfortScore >= 50) {
+    bestFloorReason = `Moderate comfort (${bestFloor.comfortScore}) - consider shading improvements`;
+  } else {
+    bestFloorReason = `Challenging conditions - all floors need comfort improvements`;
+  }
+
+  return {
+    buildingId: building.id,
+    buildingName: building.name,
+    floors: floorResults,
+    bestFloor: bestFloor.floor,
+    bestFloorReason,
+    worstFloor: worstFloor.floor,
+    averageSunlightHours: avgSunlight,
+  };
+}

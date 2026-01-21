@@ -403,8 +403,6 @@ export async function framesToGif(
   // For now, return a placeholder that indicates the feature needs gif.js
   // _options will be used when gif.js is integrated
 
-  console.warn('GIF export requires gif.js library. Using fallback.');
-
   // Return first frame as fallback
   if (frames.length > 0) {
     const response = await fetch(frames[0].dataUrl);

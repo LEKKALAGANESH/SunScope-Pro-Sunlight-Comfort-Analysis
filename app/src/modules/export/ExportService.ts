@@ -227,8 +227,8 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       pdf.text('North', margin + 120, yPos);
 
       yPos += 10;
-    } catch (error) {
-      console.error('Failed to add 3D snapshot to PDF:', error);
+    } catch {
+      // Skip 3D snapshot if it fails
     }
   }
 
@@ -921,7 +921,6 @@ export async function exportToGLTF(
         resolve();
       },
       (error) => {
-        console.error('GLTF export error:', error);
         reject(error);
       },
       {

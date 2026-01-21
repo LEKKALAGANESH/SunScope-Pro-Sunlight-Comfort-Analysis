@@ -113,8 +113,8 @@ export function DetectionPreviewPanel() {
     try {
       const result = await analyze(image.dataUrl);
       setDetectionResult(result);
-    } catch (error) {
-      console.error("Image analysis failed:", error);
+    } catch {
+      // Image analysis failed silently
     }
   };
 

@@ -80,8 +80,7 @@ export class ImageAnalyzer {
     if (this.imageData) {
       try {
         this.edgeResult = await detectEdges(this.imageData);
-      } catch (error) {
-        console.warn('Edge detection failed, falling back to color-based detection:', error);
+      } catch {
         this.edgeResult = null;
       }
     }

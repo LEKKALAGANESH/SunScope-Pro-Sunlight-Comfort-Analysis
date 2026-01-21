@@ -6,10 +6,13 @@
  * - Floor-specific data when hovering floors
  * - Sunlight analysis summary
  * - Quick actions (focus, hide, etc.)
+ * - Best floor recommendation with floor comparison chart
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import type { Building } from '../../types';
+import { analyzeAllFloors, type BuildingFloorAnalysis } from '../../modules/analysis/AnalysisEngine';
+import { useProjectStore } from '../../store/projectStore';
 
 export interface BuildingInfoPopupProps {
   /** The selected building to display info for */
@@ -46,11 +49,35 @@ export function BuildingInfoPopup({
 }: BuildingInfoPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<'info' | 'floors' | 'analysis'>('info');
+  const [floorAnalysis, setFloorAnalysis] = useState<BuildingFloorAnalysis | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  const { project } = useProjectStore();
+  const { buildings, site, analysis } = project;
 
   // Reset tab when building changes
   useEffect(() => {
     setActiveTab('info');
+    setFloorAnalysis(null);
   }, [building?.id]);
+
+  // Analyze all floors when analysis tab is opened
+  useEffect(() => {
+    if (activeTab === 'analysis' && building && !floorAnalysis && !isAnalyzing) {
+      setIsAnalyzing(true);
+      // Run analysis asynchronously to not block UI
+      setTimeout(() => {
+        const result = analyzeAllFloors(
+          analysis.date,
+          site.location,
+          buildings,
+          building.id
+        );
+        setFloorAnalysis(result);
+        setIsAnalyzing(false);
+      }, 100);
+    }
+  }, [activeTab, building, floorAnalysis, isAnalyzing, analysis.date, site.location, buildings]);
 
   if (!building) return null;
 
@@ -250,76 +277,95 @@ export function BuildingInfoPopup({
         {/* Analysis Tab */}
         {activeTab === 'analysis' && (
           <div className="space-y-3">
-            <div className="text-xs text-gray-500">
-              Estimated sunlight exposure based on building height and position.
-            </div>
-
-            {/* Sunlight Distribution Chart */}
-            <div className="space-y-1">
-              <div className="text-xs font-medium text-gray-700">Sunlight Distribution</div>
-              <div className="h-20 bg-gray-50 rounded-lg overflow-hidden flex items-end p-2 gap-0.5">
-                {Array.from({ length: building.floors }, (_, i) => {
-                  const floor = i + 1;
-                  const ratio = floor / building.floors;
-                  const height = 30 + ratio * 70;  // Min 30%, max 100%
-                  const sunlight = getFloorSunlightEstimate(floor);
-                  const colors = {
-                    high: 'bg-green-400',
-                    medium: 'bg-amber-400',
-                    low: 'bg-orange-400',
-                  };
-
-                  return (
-                    <div
-                      key={floor}
-                      className={`flex-1 rounded-t transition-all ${colors[sunlight]}`}
-                      style={{ height: `${height}%` }}
-                      title={`Floor ${floor}: ${sunlight} sunlight`}
-                    />
-                  );
-                })}
+            {isAnalyzing ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-amber-500"></div>
+                <span className="ml-2 text-sm text-gray-500">Analyzing floors...</span>
               </div>
-              <div className="flex justify-between text-xs text-gray-400">
-                <span>Floor 1</span>
-                <span>Floor {building.floors}</span>
+            ) : floorAnalysis ? (
+              <>
+                {/* Best Floor Recommendation */}
+                <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg p-3 border border-amber-200">
+                  <div className="flex items-center gap-2 mb-1">
+                    <svg className="w-4 h-4 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                    </svg>
+                    <span className="text-sm font-semibold text-amber-800">Best Floor: {floorAnalysis.bestFloor}</span>
+                  </div>
+                  <p className="text-xs text-amber-700">{floorAnalysis.bestFloorReason}</p>
+                </div>
+
+                {/* Floor Comparison Bar Chart */}
+                <div className="space-y-1">
+                  <div className="text-xs font-medium text-gray-700">Comfort Score by Floor</div>
+                  <div className="h-24 bg-gray-50 rounded-lg overflow-hidden flex items-end p-2 gap-0.5">
+                    {floorAnalysis.floors.map((floor) => {
+                      const height = Math.max(20, floor.comfortScore);
+                      const isBest = floor.floor === floorAnalysis.bestFloor;
+                      const isWorst = floor.floor === floorAnalysis.worstFloor;
+
+                      let barColor = 'bg-blue-400';
+                      if (floor.comfortScore >= 70) barColor = 'bg-green-400';
+                      else if (floor.comfortScore >= 50) barColor = 'bg-amber-400';
+                      else barColor = 'bg-orange-400';
+
+                      if (isBest) barColor = 'bg-amber-500 ring-2 ring-amber-300';
+
+                      return (
+                        <div
+                          key={floor.floor}
+                          className={`flex-1 rounded-t transition-all cursor-pointer hover:opacity-80 ${barColor}`}
+                          style={{ height: `${height}%` }}
+                          title={`Floor ${floor.floor}: ${floor.comfortScore} comfort, ${floor.sunlightHours.toFixed(1)}h sun`}
+                          onClick={() => onSelectFloor?.(floor.floor)}
+                        >
+                          {isBest && (
+                            <div className="text-[8px] text-center text-white font-bold mt-0.5">★</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-400">
+                    <span>F1</span>
+                    <span>F{building.floors}</span>
+                  </div>
+                </div>
+
+                {/* Stats Summary */}
+                <div className="grid grid-cols-2 gap-2 text-center">
+                  <div className="bg-gray-50 rounded p-2">
+                    <div className="text-gray-800 font-semibold text-sm">
+                      {floorAnalysis.averageSunlightHours.toFixed(1)}h
+                    </div>
+                    <div className="text-gray-500 text-xs">Avg Sun</div>
+                  </div>
+                  <div className="bg-gray-50 rounded p-2">
+                    <div className="text-gray-800 font-semibold text-sm">
+                      {floorAnalysis.floors.filter(f => f.comfortScore >= 60).length}/{building.floors}
+                    </div>
+                    <div className="text-gray-500 text-xs">Good Floors</div>
+                  </div>
+                </div>
+
+                {/* Floor Details Legend */}
+                <div className="flex justify-center gap-3 text-[10px]">
+                  <span className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-green-400 rounded"></div> Good (70+)
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-amber-400 rounded"></div> OK (50-69)
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-orange-400 rounded"></div> Low (&lt;50)
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="text-xs text-gray-500">
+                Unable to analyze floors. Check building data.
               </div>
-            </div>
-
-            {/* Summary Stats */}
-            <div className="grid grid-cols-3 gap-1 text-center">
-              {(() => {
-                const counts = { high: 0, medium: 0, low: 0 };
-                for (let floor = 1; floor <= building.floors; floor++) {
-                  counts[getFloorSunlightEstimate(floor)]++;
-                }
-                return (
-                  <>
-                    <div className="bg-green-50 rounded p-1.5">
-                      <div className="text-green-600 font-semibold text-sm">
-                        {counts.high}
-                      </div>
-                      <div className="text-green-600 text-xs">High</div>
-                    </div>
-                    <div className="bg-amber-50 rounded p-1.5">
-                      <div className="text-amber-600 font-semibold text-sm">
-                        {counts.medium}
-                      </div>
-                      <div className="text-amber-600 text-xs">Medium</div>
-                    </div>
-                    <div className="bg-orange-50 rounded p-1.5">
-                      <div className="text-orange-600 font-semibold text-sm">
-                        {counts.low}
-                      </div>
-                      <div className="text-orange-600 text-xs">Low</div>
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
-
-            <p className="text-xs text-gray-400 italic">
-              Run full analysis in Results for detailed metrics.
-            </p>
+            )}
           </div>
         )}
       </div>
