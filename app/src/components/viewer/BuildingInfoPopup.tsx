@@ -9,7 +9,7 @@
  * - Best floor recommendation with floor comparison chart
  */
 
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Building } from '../../types';
 import { analyzeAllFloors, type BuildingFloorAnalysis } from '../../modules/analysis/AnalysisEngine';
 import { useProjectStore } from '../../store/projectStore';
@@ -302,7 +302,6 @@ export function BuildingInfoPopup({
                     {floorAnalysis.floors.map((floor) => {
                       const height = Math.max(20, floor.comfortScore);
                       const isBest = floor.floor === floorAnalysis.bestFloor;
-                      const isWorst = floor.floor === floorAnalysis.worstFloor;
 
                       let barColor = 'bg-blue-400';
                       if (floor.comfortScore >= 70) barColor = 'bg-green-400';

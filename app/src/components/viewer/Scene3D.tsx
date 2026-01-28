@@ -270,17 +270,6 @@ export const Scene3D = forwardRef<Scene3DHandle, Scene3DProps>(function Scene3D(
   const { project, currentTime } = useProjectStore();
   const { buildings, site, analysis } = project;
 
-  // Debug: Log when buildings data changes
-  useEffect(() => {
-    const maxHeight = buildings.reduce(
-      (max, b) => Math.max(max, b.totalHeight),
-      0,
-    );
-    // console.log(
-    //   `[Buildings Changed] count=${buildings.length}, maxTotalHeight=${maxHeight.toFixed(1)}m, ` +
-    //     `buildingHeights=[${buildings.map((b) => b.totalHeight.toFixed(0)).join(", ")}]`,
-    // );
-  }, [buildings]);
 
   // Calculate scene bounds based on transformed building positions
   // IMPORTANT: Apply buildingHeightScale to maxHeight so sun orbit scales with visual building height

@@ -54,7 +54,6 @@ const FLOOR_EDGE_COLOR_DARK = 0x999999; // Darker for base and vertical edges
 
 // Selected floor highlight color
 const FLOOR_COLOR_SELECTED = 0xfbbf24; // Warm amber - stands out against pastels
-const FLOOR_COLOR_HOVER = 0xfcd34d; // Light amber for hover
 
 export interface MeshBuilderOptions {
   color: string;
@@ -499,7 +498,8 @@ export function createRobustBuildingMesh(
     showFloorDivisions = true,
     isSelected = false,
     selectedFloor,
-    logValidation = false,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    logValidation: _logValidation = false,
   } = options;
 
   const errors: string[] = [];
