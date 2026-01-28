@@ -4,14 +4,14 @@ import { useProjectStore } from "../../store/projectStore";
 import { AnimatedExportModal } from "./AnimatedExportModal";
 import { BuildingInfoPopup } from "./BuildingInfoPopup";
 import { CollapsibleSection } from "./CollapsibleSection";
-import { DebugOverlay } from "./DebugOverlay";
+// import { DebugOverlay } from "./DebugOverlay";
 import type { ViewPreset } from "./NavigationControls";
 import { NavigationControls } from "./NavigationControls";
 import type { Scene3DHandle } from "./Scene3D";
 import { Scene3D } from "./Scene3D";
 import { TimeControls } from "./TimeControls";
 // Phase 5: New components
-import type { SiteConfig as GeometrySiteConfig } from "../../lib/geometry";
+// import type { SiteConfig as GeometrySiteConfig } from "../../lib/geometry";
 import { exportToGLTF } from "../../modules/export/ExportService";
 import type { Building } from "../../types";
 import { BuildingLabels } from "./BuildingLabels";
@@ -37,6 +37,8 @@ export function ViewerPage() {
     setCurrentStep,
     setViewerSnapshot,
     displaySettings,
+    isAnimating,
+    setIsAnimating,
   } = useProjectStore();
   const { buildings, analysis } = project;
 
@@ -54,11 +56,12 @@ export function ViewerPage() {
   const [cameraAzimuth, setCameraAzimuth] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
   const [sunPosition, setSunPosition] = useState<SunPositionInfo | null>(null);
+  // @ts-expect-error - hoveredBuilding used in commented-out hover info panel
   const [hoveredBuilding, setHoveredBuilding] = useState<Building | null>(null);
   const [hoveredFloor, setHoveredFloor] = useState<number | null>(null);
   const [showAnimatedExport, setShowAnimatedExport] = useState(false);
   const [immersiveMode, setImmersiveMode] = useState(false);
-  const [debugMode, setDebugMode] = useState(false);
+  // const [debugMode, setDebugMode] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Handle Escape key to exit immersive mode
@@ -174,16 +177,16 @@ export function ViewerPage() {
     (b) => b.id === analysis.selectedBuildingId,
   );
 
-  // Site configuration for debug overlay
-  const siteConfig: GeometrySiteConfig | null =
-    project.image?.width && project.image?.height
-      ? {
-          imageWidth: project.image.width,
-          imageHeight: project.image.height,
-          scale: project.site.scale,
-          northAngle: project.site.northAngle,
-        }
-      : null;
+  // Site configuration for debug overlay (commented out - uncomment when needed)
+  // const siteConfig: GeometrySiteConfig | null =
+  //   project.image?.width && project.image?.height
+  //     ? {
+  //         imageWidth: project.image.width,
+  //         imageHeight: project.image.height,
+  //         scale: project.site.scale,
+  //         northAngle: project.site.northAngle,
+  //       }
+  //     : null;
 
   const handleSceneReady = (
     scene: THREE.Scene,
@@ -311,30 +314,55 @@ export function ViewerPage() {
             <span className="text-sm font-medium">Exit (Esc)</span>
           </button>
 
-          {/* Time Overlay */}
-          <div className="absolute top-4 right-4 bg-black/70 backdrop-blur-sm text-white px-4 py-2 rounded-lg text-sm font-mono shadow-lg">
-            <div className="flex items-center gap-2">
-              <svg
-                className="w-4 h-4 text-amber-400"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0z" />
-              </svg>
-              <span className="font-semibold">
-                {currentTime.toLocaleTimeString("en-US", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  hour12: true,
+          {/* Play/Pause + Time Overlay - Immersive Mode */}
+          <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+            {/* Play/Pause Button */}
+            <button
+              onClick={() => setIsAnimating(!isAnimating)}
+              className={`flex items-center justify-center w-11 h-11 rounded-lg shadow-lg backdrop-blur-sm transition-all duration-200 ${
+                isAnimating
+                  ? "bg-red-500/90 hover:bg-red-600/90 text-white"
+                  : "bg-amber-500/90 hover:bg-amber-600/90 text-white"
+              }`}
+              aria-label={isAnimating ? "Pause sun animation" : "Play sun animation"}
+              title={isAnimating ? "Pause" : "Play sun animation"}
+            >
+              {isAnimating ? (
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                </svg>
+              ) : (
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              )}
+            </button>
+
+            {/* Time Display */}
+            <div className="bg-black/70 backdrop-blur-sm text-white px-4 py-2 rounded-lg text-sm font-mono shadow-lg">
+              <div className="flex items-center gap-2">
+                <svg
+                  className="w-4 h-4 text-amber-400"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0z" />
+                </svg>
+                <span className="font-semibold">
+                  {currentTime.toLocaleTimeString("en-US", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: true,
+                  })}
+                </span>
+              </div>
+              <div className="text-xs text-gray-300 mt-1">
+                {analysis.date.toLocaleDateString("en-US", {
+                  weekday: "short",
+                  month: "short",
+                  day: "numeric",
                 })}
-              </span>
-            </div>
-            <div className="text-xs text-gray-300 mt-1">
-              {analysis.date.toLocaleDateString("en-US", {
-                weekday: "short",
-                month: "short",
-                day: "numeric",
-              })}
+              </div>
             </div>
           </div>
 
@@ -486,8 +514,7 @@ export function ViewerPage() {
               <div>
                 <label className="text-xs text-gray-600 mb-1 block">
                   Floor Transparency:{" "}
-                  {Math.round((displaySettings.floorTransparency ?? 1) * 100)}
-                  %
+                  {Math.round((displaySettings.floorTransparency ?? 1) * 100)}%
                 </label>
                 <input
                   type="range"
@@ -500,29 +527,6 @@ export function ViewerPage() {
                   }}
                   className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-amber-500"
                 />
-              </div>
-
-              {/* Building Height Scale */}
-              <div>
-                <label className="text-xs text-gray-600 mb-1 block">
-                  Building Height Scale:{" "}
-                  {(displaySettings.buildingHeightScale ?? 1.5).toFixed(1)}x
-                </label>
-                <input
-                  type="range"
-                  min="100"
-                  max="300"
-                  value={(displaySettings.buildingHeightScale ?? 1.5) * 100}
-                  onChange={(e) => {
-                    const scale = parseInt(e.target.value) / 100;
-                    useProjectStore.getState().setBuildingHeightScale(scale);
-                  }}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-amber-500"
-                />
-                <div className="flex justify-between text-[10px] text-gray-400 mt-1">
-                  <span>1x (Actual)</span>
-                  <span>3x (Exaggerated)</span>
-                </div>
               </div>
             </div>
           </CollapsibleSection>
@@ -749,7 +753,7 @@ export function ViewerPage() {
               )}
 
               {/* Debug Overlay for visualizing building positions */}
-              {siteConfig && (
+              {/* {siteConfig && (
                 <DebugOverlay
                   scene={sceneRef.current}
                   buildings={buildings}
@@ -762,33 +766,58 @@ export function ViewerPage() {
                     showBoundingBoxes: false,
                   }}
                 />
-              )}
+              )} */}
             </div>
 
-            {/* Date/Time Overlay */}
-            <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm text-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-mono shadow-lg">
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <svg
-                  className="w-3 h-3 sm:w-4 sm:h-4 text-amber-400"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0z" />
-                </svg>
-                <span className="font-semibold">
-                  {currentTime.toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hour12: true,
+            {/* Play/Pause + Date/Time Overlay */}
+            <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
+              {/* Play/Pause Button */}
+              <button
+                onClick={() => setIsAnimating(!isAnimating)}
+                className={`flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-lg shadow-lg backdrop-blur-sm transition-all duration-200 ${
+                  isAnimating
+                    ? "bg-red-500/90 hover:bg-red-600/90 text-white"
+                    : "bg-amber-500/90 hover:bg-amber-600/90 text-white"
+                }`}
+                aria-label={isAnimating ? "Pause sun animation" : "Play sun animation"}
+                title={isAnimating ? "Pause" : "Play sun animation"}
+              >
+                {isAnimating ? (
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                )}
+              </button>
+
+              {/* Time Display */}
+              <div className="bg-black/60 backdrop-blur-sm text-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-mono shadow-lg">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <svg
+                    className="w-3 h-3 sm:w-4 sm:h-4 text-amber-400"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0z" />
+                  </svg>
+                  <span className="font-semibold">
+                    {currentTime.toLocaleTimeString("en-US", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: true,
+                    })}
+                  </span>
+                </div>
+                <div className="text-[10px] sm:text-xs text-gray-300 mt-0.5 sm:mt-1">
+                  {analysis.date.toLocaleDateString("en-US", {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
                   })}
-                </span>
-              </div>
-              <div className="text-[10px] sm:text-xs text-gray-300 mt-0.5 sm:mt-1">
-                {analysis.date.toLocaleDateString("en-US", {
-                  weekday: "short",
-                  month: "short",
-                  day: "numeric",
-                })}
+                </div>
               </div>
             </div>
 
@@ -866,9 +895,9 @@ export function ViewerPage() {
             </div>
 
             {/* Building Hover Tooltip with Floor Insights - hidden on small mobile to avoid overlap */}
-            {hoveredBuilding && (
-              <div className="hidden xs:block absolute bottom-3 left-3 bg-gradient-to-br from-white to-gray-50/95 backdrop-blur-sm border border-gray-200/60 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl shadow-lg max-w-[200px] sm:max-w-[240px] pointer-events-none">
-                <div className="flex items-center gap-2 mb-1">
+            {/* {hoveredBuilding && ( */}
+              {/* // <div className="hidden xs:block absolute bottom-3 left-3 bg-gradient-to-br from-white to-gray-50/95 backdrop-blur-sm border border-gray-200/60 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl shadow-lg max-w-[200px] sm:max-w-[240px] pointer-events-none"> */}
+                {/* <div className="flex items-center gap-2 mb-1">
                   <div
                     className="w-3 h-3 rounded"
                     style={{ backgroundColor: hoveredBuilding.color }}
@@ -876,10 +905,10 @@ export function ViewerPage() {
                   <span className="font-medium text-gray-900 text-sm">
                     {hoveredBuilding.name}
                   </span>
-                </div>
+                </div> */}
 
                 {/* Floor-specific info when hovering a floor */}
-                {hoveredFloor && (
+                {/* {hoveredFloor && (
                   <div className="mb-2 p-2 bg-amber-50 rounded border border-amber-200">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs font-semibold text-amber-800">
@@ -943,9 +972,9 @@ export function ViewerPage() {
                       )}
                     </div>
                   </div>
-                )}
+                )} */}
 
-                <div className="space-y-0.5 text-xs text-gray-600">
+                {/* <div className="space-y-0.5 text-xs text-gray-600">
                   <div className="flex justify-between gap-4">
                     <span>Total height:</span>
                     <span className="font-mono">
@@ -962,12 +991,13 @@ export function ViewerPage() {
                       {hoveredBuilding.floorHeight}m
                     </span>
                   </div>
-                </div>
-                <div className="mt-2 pt-1 border-t border-gray-200 text-xs text-amber-600 font-medium">
+                </div> */}
+
+                {/* <div className="mt-2 pt-1 border-t border-gray-200 text-xs text-amber-600 font-medium">
                   Click to select for analysis
-                </div>
-              </div>
-            )}
+                </div> */}
+              {/* // </div> */}
+            {/* )} */}
           </div>
 
           {/* Legend - Responsive: wrap on mobile */}

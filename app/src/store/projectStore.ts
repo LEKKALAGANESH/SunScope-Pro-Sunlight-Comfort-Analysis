@@ -1,26 +1,27 @@
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid";
+import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 import type {
-  Project,
-  Building,
   Amenity,
-  ProjectImage,
-  SiteConfig,
   AnalysisResults,
-  Scenario,
   AppStep,
-  Point2D,
-  ImageAnalysisResult,
+  Building,
   DisplaySettings,
-  Measurement,
-  Vector3,
+  ImageAnalysisResult,
   ImportSummary,
-} from '../types';
+  Measurement,
+  Point2D,
+  Project,
+  ProjectImage,
+  Scenario,
+  SiteConfig,
+  Vector3,
+} from "../types";
+import { BUILDING_CONFIG, STORE_DEFAULTS } from "./sceneConfig";
 
 // Storage version for migrations
 const STORAGE_VERSION = 1;
-const STORAGE_KEY = 'sunscope-project';
+const STORAGE_KEY = "sunscope-project";
 
 interface ProjectState {
   // Current project
@@ -77,7 +78,7 @@ interface ProjectState {
   setCurrentTime: (time: Date) => void;
   setCurrentStep: (step: AppStep) => void;
   setAnalysisResults: (results: AnalysisResults | null) => void;
-  addScenario: (scenario: Omit<Scenario, 'id'>) => void;
+  addScenario: (scenario: Omit<Scenario, "id">) => void;
   updateScenario: (id: string, updates: Partial<Scenario>) => void;
   setActiveScenario: (id: string | null) => void;
   setIsAnimating: (isAnimating: boolean) => void;
@@ -109,7 +110,9 @@ interface ProjectState {
   setHeatmapOpacity: (opacity: number) => void;
   setShadowIntensity: (intensity: number) => void;
   setBuildingHeightScale: (scale: number) => void;
-  setShadowVisualizationMode: (mode: 'natural' | 'enhanced' | 'analysis') => void;
+  setShadowVisualizationMode: (
+    mode: "natural" | "enhanced" | "analysis",
+  ) => void;
 
   // Measurement actions
   setMeasurementMode: (enabled: boolean) => void;
@@ -123,13 +126,13 @@ const getDefaultProject = (): Project => ({
   createdAt: new Date(),
   image: null,
   site: {
-    northAngle: 0,
-    scale: 1, // meters per pixel
+    northAngle: STORE_DEFAULTS.northAngle,
+    scale: STORE_DEFAULTS.siteScale,
     location: {
-      latitude: 40.7128,
-      longitude: -74.006,
-      timezone: 'America/New_York',
-      city: 'New York',
+      latitude: STORE_DEFAULTS.defaultLocation.latitude,
+      longitude: STORE_DEFAULTS.defaultLocation.longitude,
+      timezone: STORE_DEFAULTS.defaultLocation.timezone,
+      city: STORE_DEFAULTS.defaultLocation.city,
     },
   },
   buildings: [],
@@ -137,7 +140,10 @@ const getDefaultProject = (): Project => ({
   importSummary: null,
   analysis: {
     date: new Date(),
-    timeRange: { start: 6, end: 20 },
+    timeRange: {
+      start: STORE_DEFAULTS.analysisTimeRange.start,
+      end: STORE_DEFAULTS.analysisTimeRange.end,
+    },
     selectedBuildingId: undefined,
     selectedFloor: undefined,
   },
@@ -145,21 +151,32 @@ const getDefaultProject = (): Project => ({
 
 const getDefaultScenario = (): Scenario => ({
   id: uuidv4(),
-  name: 'Default',
+  name: "Default",
   isActive: true,
-  window: { state: 'closed', ventilationFactor: 0 },
-  glazing: { type: 'double', solarTransmittance: 0.76 },
-  shading: { interior: 'none', exterior: 'none', reductionFactor: 1 },
+  window: {
+    state: STORE_DEFAULTS.defaultScenario.window.state,
+    ventilationFactor: STORE_DEFAULTS.defaultScenario.window.ventilationFactor,
+  },
+  glazing: {
+    type: STORE_DEFAULTS.defaultScenario.glazing.type,
+    solarTransmittance:
+      STORE_DEFAULTS.defaultScenario.glazing.solarTransmittance,
+  },
+  shading: {
+    interior: STORE_DEFAULTS.defaultScenario.shading.interior,
+    exterior: STORE_DEFAULTS.defaultScenario.shading.exterior,
+    reductionFactor: STORE_DEFAULTS.defaultScenario.shading.reductionFactor,
+  },
 });
 
 const getDefaultDisplaySettings = (): DisplaySettings => ({
-  floorTransparency: 1,
+  floorTransparency: STORE_DEFAULTS.floorTransparency,
   showFloorLabels: true,
   showShadowHeatmap: false,
-  heatmapOpacity: 0.5,
-  shadowIntensity: 0.7, // Default shadow darkness (0.3-1.0)
-  buildingHeightScale: 6.5, // Default height multiplier for visual impact (1.0-3.0)
-  shadowVisualizationMode: 'natural', // Default: natural shadows with dynamic softness
+  heatmapOpacity: STORE_DEFAULTS.heatmapOpacity,
+  shadowIntensity: STORE_DEFAULTS.shadowIntensity,
+  buildingHeightScale: STORE_DEFAULTS.buildingHeightScale,
+  shadowVisualizationMode: STORE_DEFAULTS.shadowVisualizationMode,
 });
 
 // Helper to calculate polygon area
@@ -174,17 +191,14 @@ const calculatePolygonArea = (points: Point2D[]): number => {
   return Math.abs(area / 2);
 };
 
-// Generate building colors
-const buildingColors = [
-  '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
-  '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1',
-];
+// Generate building colors from config
+const buildingColors = BUILDING_CONFIG.colors;
 
 export const useProjectStore = create<ProjectState>()(
   persist(
     (set, get) => ({
       project: getDefaultProject(),
-      currentStep: 'upload',
+      currentStep: "upload",
       isLoading: false,
       error: null,
       detectionResult: null,
@@ -203,501 +217,592 @@ export const useProjectStore = create<ProjectState>()(
       hasSavedProgress: false,
       hasSeenWelcome: false,
 
-  setImage: (image) =>
-    set(() => ({
-      // Reset project with new image - clear all previous data
-      project: {
-        ...getDefaultProject(),
-        image,
-      },
-      currentStep: 'setup',
-      // Clear all previous state
-      detectionResult: null,
-      analysisResults: null,
-      viewerSnapshot: null,
-      scenarios: [getDefaultScenario()],
-      activeScenarioId: null,
-      displaySettings: getDefaultDisplaySettings(),
-      measurements: [],
-      measurementMode: false,
-      // Mark as having progress with new image
-      hasSavedProgress: true,
-      lastSavedAt: new Date(),
-    })),
-
-  clearImage: () =>
-    set((state) => ({
-      project: { ...state.project, image: null },
-      currentStep: 'upload',
-    })),
-
-  setSiteConfig: (config) =>
-    set((state) => ({
-      project: {
-        ...state.project,
-        site: { ...state.project.site, ...config },
-      },
-    })),
-
-  setLocation: (latitude, longitude, city) =>
-    set((state) => ({
-      project: {
-        ...state.project,
-        site: {
-          ...state.project.site,
-          location: {
-            ...state.project.site.location,
-            latitude,
-            longitude,
-            city: city || state.project.site.location.city,
+      setImage: (image) =>
+        set(() => ({
+          // Reset project with new image - clear all previous data
+          project: {
+            ...getDefaultProject(),
+            image,
           },
-        },
-      },
-    })),
+          currentStep: "setup",
+          // Clear all previous state
+          detectionResult: null,
+          analysisResults: null,
+          viewerSnapshot: null,
+          scenarios: [getDefaultScenario()],
+          activeScenarioId: null,
+          displaySettings: getDefaultDisplaySettings(),
+          measurements: [],
+          measurementMode: false,
+          // Mark as having progress with new image
+          hasSavedProgress: true,
+          lastSavedAt: new Date(),
+        })),
 
-  addBuilding: (footprint, name) =>
-    set((state) => {
-      const buildingCount = state.project.buildings.length;
-      const area = calculatePolygonArea(footprint);
-      // V2: Calculate proportional floor count based on footprint area
-      // Larger footprints get more floors for visual balance
-      // Small (<500m²): 6 floors, Medium (<2000m²): 10 floors, Large: 15 floors
-      const proportionalFloors = area < 500 ? 6 : area < 2000 ? 10 : 15;
-      const floorHeight = 3; // Standard floor height in meters
-      const newBuilding: Building = {
-        id: uuidv4(),
-        name: name || `Building ${buildingCount + 1}`,
-        footprint,
-        floors: proportionalFloors,
-        floorHeight: floorHeight,
-        baseElevation: 0,
-        totalHeight: proportionalFloors * floorHeight,
-        area: area,
-        color: buildingColors[buildingCount % buildingColors.length],
-      };
-      return {
-        project: {
-          ...state.project,
-          buildings: [...state.project.buildings, newBuilding],
-        },
-      };
-    }),
+      clearImage: () =>
+        set((state) => ({
+          project: { ...state.project, image: null },
+          currentStep: "upload",
+        })),
 
-  updateBuilding: (id, updates) =>
-    set((state) => ({
-      project: {
-        ...state.project,
-        buildings: state.project.buildings.map((b) => {
-          if (b.id !== id) return b;
-          const updated = { ...b, ...updates };
-          // Recalculate derived values
-          if (updates.floors !== undefined || updates.floorHeight !== undefined) {
-            updated.totalHeight = updated.floors * updated.floorHeight;
+      setSiteConfig: (config) =>
+        set((state) => {
+          // Use centralized scale limits from config
+          const { siteScaleLimits, buildingHeightScaleLimits } = STORE_DEFAULTS;
+
+          const oldScale = state.project.site.scale;
+          let newScale = config.scale;
+
+          // Validate and clamp scale if provided
+          if (newScale !== undefined) {
+            // Reject invalid values (NaN, negative, zero)
+            if (isNaN(newScale) || newScale <= 0) {
+              newScale = oldScale; // Keep old value
+            } else {
+              // Clamp to safe range
+              newScale = Math.max(
+                siteScaleLimits.min,
+                Math.min(siteScaleLimits.max, newScale),
+              );
+            }
           }
-          if (updates.footprint !== undefined) {
-            updated.area = calculatePolygonArea(updated.footprint);
+
+          // Auto-adjust building height scale when site scale changes
+          // This maintains visual proportions (buildings don't look flat)
+          let newDisplaySettings = state.displaySettings;
+          if (newScale !== undefined && newScale !== oldScale && oldScale > 0) {
+            const scaleRatio = newScale / oldScale;
+            const newHeightScale =
+              state.displaySettings.buildingHeightScale * scaleRatio;
+            // Clamp to reasonable range using centralized limits
+            const clampedHeightScale = Math.max(
+              buildingHeightScaleLimits.min,
+              Math.min(buildingHeightScaleLimits.max, newHeightScale),
+            );
+            newDisplaySettings = {
+              ...state.displaySettings,
+              buildingHeightScale: clampedHeightScale,
+            };
           }
-          return updated;
+
+          // Create validated config
+          const validatedConfig = {
+            ...config,
+            ...(newScale !== undefined ? { scale: newScale } : {}),
+          };
+
+          return {
+            project: {
+              ...state.project,
+              site: { ...state.project.site, ...validatedConfig },
+            },
+            displaySettings: newDisplaySettings,
+          };
         }),
-      },
-    })),
 
-  removeBuilding: (id) =>
-    set((state) => ({
-      project: {
-        ...state.project,
-        buildings: state.project.buildings.filter((b) => b.id !== id),
-        analysis: {
-          ...state.project.analysis,
-          selectedBuildingId:
-            state.project.analysis.selectedBuildingId === id
-              ? undefined
-              : state.project.analysis.selectedBuildingId,
-        },
-      },
-    })),
-
-  clearAllImportedElements: () =>
-    set((state) => ({
-      project: {
-        ...state.project,
-        buildings: [],
-        amenities: [],
-        importSummary: null,
-        analysis: {
-          ...state.project.analysis,
-          selectedBuildingId: undefined,
-          selectedFloor: undefined,
-        },
-      },
-    })),
-
-  selectBuilding: (id) =>
-    set((state) => ({
-      project: {
-        ...state.project,
-        analysis: { ...state.project.analysis, selectedBuildingId: id },
-      },
-    })),
-
-  selectFloor: (floor) =>
-    set((state) => ({
-      project: {
-        ...state.project,
-        analysis: { ...state.project.analysis, selectedFloor: floor },
-      },
-    })),
-
-  setAnalysisDate: (date) =>
-    set((state) => ({
-      project: {
-        ...state.project,
-        analysis: { ...state.project.analysis, date },
-      },
-    })),
-
-  setCurrentTime: (time) => set({ currentTime: time }),
-
-  setCurrentStep: (step) => set({ currentStep: step }),
-
-  setAnalysisResults: (results) => set({ analysisResults: results }),
-
-  addScenario: (scenario) =>
-    set((state) => ({
-      scenarios: [...state.scenarios, { ...scenario, id: uuidv4() }],
-    })),
-
-  updateScenario: (id, updates) =>
-    set((state) => ({
-      scenarios: state.scenarios.map((s) =>
-        s.id === id ? { ...s, ...updates } : s
-      ),
-    })),
-
-  setActiveScenario: (id) => set({ activeScenarioId: id }),
-
-  setIsAnimating: (isAnimating) => set({ isAnimating }),
-
-  setAnimationSpeed: (speed) => set({ animationSpeed: speed }),
-
-  setLoading: (isLoading) => set({ isLoading }),
-
-  setError: (error) => set({ error }),
-
-  setViewerSnapshot: (snapshot) => set({ viewerSnapshot: snapshot }),
-
-  resetProject: () =>
-    set({
-      project: getDefaultProject(),
-      currentStep: 'upload',
-      analysisResults: null,
-      detectionResult: null,
-      viewerSnapshot: null,
-      scenarios: [getDefaultScenario()],
-      activeScenarioId: null,
-      displaySettings: getDefaultDisplaySettings(),
-      measurements: [],
-      measurementMode: false,
-      hasSavedProgress: false,
-      lastSavedAt: null,
-    }),
-
-  clearSavedProgress: () => {
-    localStorage.removeItem(STORAGE_KEY);
-    set({
-      project: getDefaultProject(),
-      currentStep: 'upload',
-      analysisResults: null,
-      detectionResult: null,
-      viewerSnapshot: null,
-      scenarios: [getDefaultScenario()],
-      activeScenarioId: null,
-      displaySettings: getDefaultDisplaySettings(),
-      measurements: [],
-      measurementMode: false,
-      hasSavedProgress: false,
-      lastSavedAt: null,
-    });
-  },
-
-  setHasSeenWelcome: (seen) => set({ hasSeenWelcome: seen }),
-
-  // Detection actions
-  setDetectionResult: (result) => set({ detectionResult: result }),
-
-  setIsAnalyzing: (isAnalyzing) => set({ isAnalyzing }),
-
-  toggleDetectedBuilding: (buildingId) =>
-    set((state) => {
-      if (!state.detectionResult) return state;
-      return {
-        detectionResult: {
-          ...state.detectionResult,
-          buildings: state.detectionResult.buildings.map((b) =>
-            b.id === buildingId ? { ...b, selected: !b.selected } : b
-          ),
-        },
-      };
-    }),
-
-  selectAllDetectedBuildings: (selected) =>
-    set((state) => {
-      if (!state.detectionResult) return state;
-      return {
-        detectionResult: {
-          ...state.detectionResult,
-          buildings: state.detectionResult.buildings.map((b) => ({
-            ...b,
-            selected,
-          })),
-        },
-      };
-    }),
-
-  toggleDetectedAmenity: (amenityId) =>
-    set((state) => {
-      if (!state.detectionResult) return state;
-      return {
-        detectionResult: {
-          ...state.detectionResult,
-          amenities: state.detectionResult.amenities.map((a) =>
-            a.id === amenityId ? { ...a, selected: !a.selected } : a
-          ),
-        },
-      };
-    }),
-
-  selectAllDetectedAmenities: (selected) =>
-    set((state) => {
-      if (!state.detectionResult) return state;
-      return {
-        detectionResult: {
-          ...state.detectionResult,
-          amenities: state.detectionResult.amenities.map((a) => ({
-            ...a,
-            selected,
-          })),
-        },
-      };
-    }),
-
-  importSelectedElements: () => {
-    const state = get();
-    const summary: ImportSummary = {
-      buildingsImported: 0,
-      amenitiesImported: 0,
-      compassApplied: false,
-      scaleApplied: false,
-      importedAt: new Date(),
-    };
-
-    if (!state.detectionResult) return summary;
-
-    // Import selected buildings
-    const selectedBuildings = state.detectionResult.buildings.filter(
-      (b) => b.selected
-    );
-    const existingBuildingCount = state.project.buildings.length;
-    const newBuildings: Building[] = selectedBuildings.map((detected, index) => {
-      // V2: Calculate proportional floor count based on footprint area
-      // Larger footprints get more floors for visual balance
-      const area = detected.area || 1000;
-      const proportionalFloors = area < 500 ? 6 : area < 2000 ? 10 : 15;
-      const floorHeight = 3; // Standard floor height in meters
-      return {
-        id: uuidv4(),
-        name: detected.suggestedName || `Building ${existingBuildingCount + index + 1}`,
-        footprint: detected.footprint,
-        floors: proportionalFloors,
-        floorHeight: floorHeight,
-        baseElevation: 0,
-        totalHeight: proportionalFloors * floorHeight,
-        area: detected.area,
-        color: buildingColors[(existingBuildingCount + index) % buildingColors.length],
-      };
-    });
-    summary.buildingsImported = newBuildings.length;
-
-    // Import selected amenities
-    const selectedAmenities = state.detectionResult.amenities.filter(
-      (a) => a.selected
-    );
-    const amenityLabels: Record<string, string> = {
-      swimming_pool: 'Swimming Pool',
-      tennis_court: 'Tennis Court',
-      basketball_court: 'Basketball Court',
-      playground: 'Playground',
-      clubhouse: 'Clubhouse',
-      parking: 'Parking',
-      garden: 'Garden',
-      water_body: 'Water Body',
-      jogging_track: 'Jogging Track',
-      unknown: 'Unknown Amenity',
-    };
-    const newAmenities: Amenity[] = selectedAmenities.map((detected, index) => ({
-      id: uuidv4(),
-      type: detected.type,
-      name: detected.label || amenityLabels[detected.type] || `Amenity ${index + 1}`,
-      position: detected.position,
-      boundingBox: detected.boundingBox,
-      confidence: detected.confidence,
-    }));
-    summary.amenitiesImported = newAmenities.length;
-
-    // Apply compass if detected with good confidence
-    let newNorthAngle = state.project.site.northAngle;
-    if (state.detectionResult.compass && state.detectionResult.compass.confidence > 0.5) {
-      newNorthAngle = state.detectionResult.compass.northAngle;
-      summary.compassApplied = true;
-    }
-
-    // Apply scale if detected with good confidence
-    let newScale = state.project.site.scale;
-    if (state.detectionResult.scale && state.detectionResult.scale.suggestedMeters && state.detectionResult.scale.confidence > 0.5) {
-      newScale = state.detectionResult.scale.suggestedMeters / state.detectionResult.scale.pixelLength;
-      summary.scaleApplied = true;
-    }
-
-    set((state) => ({
-      project: {
-        ...state.project,
-        buildings: [...state.project.buildings, ...newBuildings],
-        amenities: [...state.project.amenities, ...newAmenities],
-        importSummary: summary,
-        site: {
-          ...state.project.site,
-          northAngle: newNorthAngle,
-          scale: newScale,
-        },
-      },
-      hasSavedProgress: true,
-      lastSavedAt: new Date(),
-      // Clear selection after import
-      detectionResult: state.detectionResult
-        ? {
-            ...state.detectionResult,
-            buildings: state.detectionResult.buildings.map((b) => ({
-              ...b,
-              selected: false,
-            })),
-            amenities: state.detectionResult.amenities.map((a) => ({
-              ...a,
-              selected: false,
-            })),
-          }
-        : null,
-    }));
-
-    return summary;
-  },
-
-  // Legacy function - calls importSelectedElements
-  importSelectedBuildings: () => {
-    get().importSelectedElements();
-  },
-
-  // Sample project loading
-  loadSampleProject: (projectId: string) => {
-    // Dynamic import to avoid circular dependency
-    import('../data/sampleProjects').then(({ getSampleProjectById, generateSampleImage }) => {
-      const sample = getSampleProjectById(projectId);
-      if (!sample) {
-        return;
-      }
-
-      const image = generateSampleImage(sample);
-
-      set({
-        project: {
-          id: uuidv4(),
-          createdAt: new Date(),
-          image,
-          site: sample.site,
-          buildings: sample.buildings.map(b => ({
-            ...b,
-            id: uuidv4(), // Generate new IDs
-          })),
-          amenities: [], // Sample projects don't have amenities
-          importSummary: null,
-          analysis: {
-            date: new Date(),
-            timeRange: { start: 6, end: 20 },
-            selectedBuildingId: undefined,
-            selectedFloor: undefined,
+      setLocation: (latitude, longitude, city) =>
+        set((state) => ({
+          project: {
+            ...state.project,
+            site: {
+              ...state.project.site,
+              location: {
+                ...state.project.site.location,
+                latitude,
+                longitude,
+                city: city || state.project.site.location.city,
+              },
+            },
           },
-        },
-        currentStep: 'viewer', // Skip to viewer since buildings are pre-configured
-        detectionResult: null,
-        analysisResults: null,
-        hasSavedProgress: true,
-        lastSavedAt: new Date(),
-      });
-    });
-  },
+        })),
 
-  // Display settings actions
-  setDisplaySettings: (settings) =>
-    set((state) => ({
-      displaySettings: { ...state.displaySettings, ...settings },
-    })),
+      addBuilding: (footprint, name) =>
+        set((state) => {
+          const buildingCount = state.project.buildings.length;
+          const area = calculatePolygonArea(footprint);
+          // V2: Calculate proportional floor count based on footprint area
+          // Larger footprints get more floors for visual balance
+          // Small (<500m²): 6 floors, Medium (<2000m²): 10 floors, Large: 15 floors
+          const proportionalFloors = area < 500 ? 6 : area < 2000 ? 10 : 15;
+          const floorHeight = 3; // Standard floor height in meters
+          const newBuilding: Building = {
+            id: uuidv4(),
+            name: name || `Building ${buildingCount + 1}`,
+            footprint,
+            floors: proportionalFloors,
+            floorHeight: floorHeight,
+            baseElevation: 0,
+            totalHeight: proportionalFloors * floorHeight,
+            area: area,
+            color: buildingColors[buildingCount % buildingColors.length],
+          };
+          return {
+            project: {
+              ...state.project,
+              buildings: [...state.project.buildings, newBuilding],
+            },
+          };
+        }),
 
-  setFloorTransparency: (opacity) =>
-    set((state) => ({
-      displaySettings: { ...state.displaySettings, floorTransparency: opacity },
-    })),
+      updateBuilding: (id, updates) =>
+        set((state) => ({
+          project: {
+            ...state.project,
+            buildings: state.project.buildings.map((b) => {
+              if (b.id !== id) return b;
+              const updated = { ...b, ...updates };
+              // Recalculate derived values
+              if (
+                updates.floors !== undefined ||
+                updates.floorHeight !== undefined
+              ) {
+                updated.totalHeight = updated.floors * updated.floorHeight;
+              }
+              if (updates.footprint !== undefined) {
+                updated.area = calculatePolygonArea(updated.footprint);
+              }
+              return updated;
+            }),
+          },
+        })),
 
-  toggleShadowHeatmap: (show) =>
-    set((state) => ({
-      displaySettings: { ...state.displaySettings, showShadowHeatmap: show },
-    })),
+      removeBuilding: (id) =>
+        set((state) => ({
+          project: {
+            ...state.project,
+            buildings: state.project.buildings.filter((b) => b.id !== id),
+            analysis: {
+              ...state.project.analysis,
+              selectedBuildingId:
+                state.project.analysis.selectedBuildingId === id
+                  ? undefined
+                  : state.project.analysis.selectedBuildingId,
+            },
+          },
+        })),
 
-  setHeatmapOpacity: (opacity) =>
-    set((state) => ({
-      displaySettings: { ...state.displaySettings, heatmapOpacity: opacity },
-    })),
+      clearAllImportedElements: () =>
+        set((state) => ({
+          project: {
+            ...state.project,
+            buildings: [],
+            amenities: [],
+            importSummary: null,
+            analysis: {
+              ...state.project.analysis,
+              selectedBuildingId: undefined,
+              selectedFloor: undefined,
+            },
+          },
+        })),
 
-  setShadowIntensity: (intensity) =>
-    set((state) => ({
-      displaySettings: { ...state.displaySettings, shadowIntensity: intensity },
-    })),
+      selectBuilding: (id) =>
+        set((state) => ({
+          project: {
+            ...state.project,
+            analysis: { ...state.project.analysis, selectedBuildingId: id },
+          },
+        })),
 
-  setBuildingHeightScale: (scale) =>
-    set((state) => ({
-      displaySettings: { ...state.displaySettings, buildingHeightScale: scale },
-    })),
+      selectFloor: (floor) =>
+        set((state) => ({
+          project: {
+            ...state.project,
+            analysis: { ...state.project.analysis, selectedFloor: floor },
+          },
+        })),
 
-  setShadowVisualizationMode: (mode: 'natural' | 'enhanced' | 'analysis') =>
-    set((state) => ({
-      displaySettings: { ...state.displaySettings, shadowVisualizationMode: mode },
-    })),
+      setAnalysisDate: (date) =>
+        set((state) => ({
+          project: {
+            ...state.project,
+            analysis: { ...state.project.analysis, date },
+          },
+        })),
 
-  // Measurement actions
-  setMeasurementMode: (enabled) => set({ measurementMode: enabled }),
+      setCurrentTime: (time) => set({ currentTime: time }),
 
-  addMeasurement: (point1, point2) => {
-    const distance = Math.sqrt(
-      Math.pow(point2.x - point1.x, 2) +
-      Math.pow(point2.y - point1.y, 2) +
-      Math.pow(point2.z - point1.z, 2)
-    );
-    const newMeasurement: Measurement = {
-      id: uuidv4(),
-      point1,
-      point2,
-      distance,
-      createdAt: new Date(),
-    };
-    set((state) => ({
-      measurements: [...state.measurements, newMeasurement],
-    }));
-  },
+      setCurrentStep: (step) => set({ currentStep: step }),
 
-  removeMeasurement: (id) =>
-    set((state) => ({
-      measurements: state.measurements.filter((m) => m.id !== id),
-    })),
+      setAnalysisResults: (results) => set({ analysisResults: results }),
 
-  clearMeasurements: () => set({ measurements: [] }),
+      addScenario: (scenario) =>
+        set((state) => ({
+          scenarios: [...state.scenarios, { ...scenario, id: uuidv4() }],
+        })),
+
+      updateScenario: (id, updates) =>
+        set((state) => ({
+          scenarios: state.scenarios.map((s) =>
+            s.id === id ? { ...s, ...updates } : s,
+          ),
+        })),
+
+      setActiveScenario: (id) => set({ activeScenarioId: id }),
+
+      setIsAnimating: (isAnimating) => set({ isAnimating }),
+
+      setAnimationSpeed: (speed) => set({ animationSpeed: speed }),
+
+      setLoading: (isLoading) => set({ isLoading }),
+
+      setError: (error) => set({ error }),
+
+      setViewerSnapshot: (snapshot) => set({ viewerSnapshot: snapshot }),
+
+      resetProject: () =>
+        set({
+          project: getDefaultProject(),
+          currentStep: "upload",
+          analysisResults: null,
+          detectionResult: null,
+          viewerSnapshot: null,
+          scenarios: [getDefaultScenario()],
+          activeScenarioId: null,
+          displaySettings: getDefaultDisplaySettings(),
+          measurements: [],
+          measurementMode: false,
+          hasSavedProgress: false,
+          lastSavedAt: null,
+        }),
+
+      clearSavedProgress: () => {
+        localStorage.removeItem(STORAGE_KEY);
+        set({
+          project: getDefaultProject(),
+          currentStep: "upload",
+          analysisResults: null,
+          detectionResult: null,
+          viewerSnapshot: null,
+          scenarios: [getDefaultScenario()],
+          activeScenarioId: null,
+          displaySettings: getDefaultDisplaySettings(),
+          measurements: [],
+          measurementMode: false,
+          hasSavedProgress: false,
+          lastSavedAt: null,
+        });
+      },
+
+      setHasSeenWelcome: (seen) => set({ hasSeenWelcome: seen }),
+
+      // Detection actions
+      setDetectionResult: (result) => set({ detectionResult: result }),
+
+      setIsAnalyzing: (isAnalyzing) => set({ isAnalyzing }),
+
+      toggleDetectedBuilding: (buildingId) =>
+        set((state) => {
+          if (!state.detectionResult) return state;
+          return {
+            detectionResult: {
+              ...state.detectionResult,
+              buildings: state.detectionResult.buildings.map((b) =>
+                b.id === buildingId ? { ...b, selected: !b.selected } : b,
+              ),
+            },
+          };
+        }),
+
+      selectAllDetectedBuildings: (selected) =>
+        set((state) => {
+          if (!state.detectionResult) return state;
+          return {
+            detectionResult: {
+              ...state.detectionResult,
+              buildings: state.detectionResult.buildings.map((b) => ({
+                ...b,
+                selected,
+              })),
+            },
+          };
+        }),
+
+      toggleDetectedAmenity: (amenityId) =>
+        set((state) => {
+          if (!state.detectionResult) return state;
+          return {
+            detectionResult: {
+              ...state.detectionResult,
+              amenities: state.detectionResult.amenities.map((a) =>
+                a.id === amenityId ? { ...a, selected: !a.selected } : a,
+              ),
+            },
+          };
+        }),
+
+      selectAllDetectedAmenities: (selected) =>
+        set((state) => {
+          if (!state.detectionResult) return state;
+          return {
+            detectionResult: {
+              ...state.detectionResult,
+              amenities: state.detectionResult.amenities.map((a) => ({
+                ...a,
+                selected,
+              })),
+            },
+          };
+        }),
+
+      importSelectedElements: () => {
+        const state = get();
+        const summary: ImportSummary = {
+          buildingsImported: 0,
+          amenitiesImported: 0,
+          compassApplied: false,
+          scaleApplied: false,
+          importedAt: new Date(),
+        };
+
+        if (!state.detectionResult) return summary;
+
+        // Import selected buildings
+        const selectedBuildings = state.detectionResult.buildings.filter(
+          (b) => b.selected,
+        );
+        const existingBuildingCount = state.project.buildings.length;
+        const newBuildings: Building[] = selectedBuildings.map(
+          (detected, index) => {
+            // V2: Calculate proportional floor count based on footprint area
+            // Larger footprints get more floors for visual balance
+            const area = detected.area || 1000;
+            const proportionalFloors = area < 500 ? 6 : area < 2000 ? 10 : 15;
+            const floorHeight = 3; // Standard floor height in meters
+            return {
+              id: uuidv4(),
+              name:
+                detected.suggestedName ||
+                `Building ${existingBuildingCount + index + 1}`,
+              footprint: detected.footprint,
+              floors: proportionalFloors,
+              floorHeight: floorHeight,
+              baseElevation: 0,
+              totalHeight: proportionalFloors * floorHeight,
+              area: detected.area,
+              color:
+                buildingColors[
+                  (existingBuildingCount + index) % buildingColors.length
+                ],
+            };
+          },
+        );
+        summary.buildingsImported = newBuildings.length;
+
+        // Import selected amenities
+        const selectedAmenities = state.detectionResult.amenities.filter(
+          (a) => a.selected,
+        );
+        const amenityLabels: Record<string, string> = {
+          swimming_pool: "Swimming Pool",
+          tennis_court: "Tennis Court",
+          basketball_court: "Basketball Court",
+          playground: "Playground",
+          clubhouse: "Clubhouse",
+          parking: "Parking",
+          garden: "Garden",
+          water_body: "Water Body",
+          jogging_track: "Jogging Track",
+          unknown: "Unknown Amenity",
+        };
+        const newAmenities: Amenity[] = selectedAmenities.map(
+          (detected, index) => ({
+            id: uuidv4(),
+            type: detected.type,
+            name:
+              detected.label ||
+              amenityLabels[detected.type] ||
+              `Amenity ${index + 1}`,
+            position: detected.position,
+            boundingBox: detected.boundingBox,
+            confidence: detected.confidence,
+          }),
+        );
+        summary.amenitiesImported = newAmenities.length;
+
+        // Apply compass if detected with good confidence
+        let newNorthAngle = state.project.site.northAngle;
+        if (
+          state.detectionResult.compass &&
+          state.detectionResult.compass.confidence > 0.5
+        ) {
+          newNorthAngle = state.detectionResult.compass.northAngle;
+          summary.compassApplied = true;
+        }
+
+        // Apply scale if detected with good confidence
+        let newScale = state.project.site.scale;
+        if (
+          state.detectionResult.scale &&
+          state.detectionResult.scale.suggestedMeters &&
+          state.detectionResult.scale.confidence > 0.5
+        ) {
+          newScale =
+            state.detectionResult.scale.suggestedMeters /
+            state.detectionResult.scale.pixelLength;
+          summary.scaleApplied = true;
+        }
+
+        set((state) => ({
+          project: {
+            ...state.project,
+            buildings: [...state.project.buildings, ...newBuildings],
+            amenities: [...state.project.amenities, ...newAmenities],
+            importSummary: summary,
+            site: {
+              ...state.project.site,
+              northAngle: newNorthAngle,
+              scale: newScale,
+            },
+          },
+          hasSavedProgress: true,
+          lastSavedAt: new Date(),
+          // Clear selection after import
+          detectionResult: state.detectionResult
+            ? {
+                ...state.detectionResult,
+                buildings: state.detectionResult.buildings.map((b) => ({
+                  ...b,
+                  selected: false,
+                })),
+                amenities: state.detectionResult.amenities.map((a) => ({
+                  ...a,
+                  selected: false,
+                })),
+              }
+            : null,
+        }));
+
+        return summary;
+      },
+
+      // Legacy function - calls importSelectedElements
+      importSelectedBuildings: () => {
+        get().importSelectedElements();
+      },
+
+      // Sample project loading
+      loadSampleProject: (projectId: string) => {
+        // Dynamic import to avoid circular dependency
+        import("../data/sampleProjects").then(
+          ({ getSampleProjectById, generateSampleImage }) => {
+            const sample = getSampleProjectById(projectId);
+            if (!sample) {
+              return;
+            }
+
+            const image = generateSampleImage(sample);
+
+            set({
+              project: {
+                id: uuidv4(),
+                createdAt: new Date(),
+                image,
+                site: sample.site,
+                buildings: sample.buildings.map((b) => ({
+                  ...b,
+                  id: uuidv4(), // Generate new IDs
+                })),
+                amenities: [], // Sample projects don't have amenities
+                importSummary: null,
+                analysis: {
+                  date: new Date(),
+                  timeRange: { start: 6, end: 20 },
+                  selectedBuildingId: undefined,
+                  selectedFloor: undefined,
+                },
+              },
+              currentStep: "viewer", // Skip to viewer since buildings are pre-configured
+              detectionResult: null,
+              analysisResults: null,
+              hasSavedProgress: true,
+              lastSavedAt: new Date(),
+            });
+          },
+        );
+      },
+
+      // Display settings actions
+      setDisplaySettings: (settings) =>
+        set((state) => ({
+          displaySettings: { ...state.displaySettings, ...settings },
+        })),
+
+      setFloorTransparency: (opacity) =>
+        set((state) => ({
+          displaySettings: {
+            ...state.displaySettings,
+            floorTransparency: opacity,
+          },
+        })),
+
+      toggleShadowHeatmap: (show) =>
+        set((state) => ({
+          displaySettings: {
+            ...state.displaySettings,
+            showShadowHeatmap: show,
+          },
+        })),
+
+      setHeatmapOpacity: (opacity) =>
+        set((state) => ({
+          displaySettings: {
+            ...state.displaySettings,
+            heatmapOpacity: opacity,
+          },
+        })),
+
+      setShadowIntensity: (intensity) =>
+        set((state) => ({
+          displaySettings: {
+            ...state.displaySettings,
+            shadowIntensity: intensity,
+          },
+        })),
+
+      setBuildingHeightScale: (scale) =>
+        set((state) => ({
+          displaySettings: {
+            ...state.displaySettings,
+            buildingHeightScale: scale,
+          },
+        })),
+
+      setShadowVisualizationMode: (mode: "natural" | "enhanced" | "analysis") =>
+        set((state) => ({
+          displaySettings: {
+            ...state.displaySettings,
+            shadowVisualizationMode: mode,
+          },
+        })),
+
+      // Measurement actions
+      setMeasurementMode: (enabled) => set({ measurementMode: enabled }),
+
+      addMeasurement: (point1, point2) => {
+        const distance = Math.sqrt(
+          Math.pow(point2.x - point1.x, 2) +
+            Math.pow(point2.y - point1.y, 2) +
+            Math.pow(point2.z - point1.z, 2),
+        );
+        const newMeasurement: Measurement = {
+          id: uuidv4(),
+          point1,
+          point2,
+          distance,
+          createdAt: new Date(),
+        };
+        set((state) => ({
+          measurements: [...state.measurements, newMeasurement],
+        }));
+      },
+
+      removeMeasurement: (id) =>
+        set((state) => ({
+          measurements: state.measurements.filter((m) => m.id !== id),
+        })),
+
+      clearMeasurements: () => set({ measurements: [] }),
     }),
     {
       name: STORAGE_KEY,
@@ -713,7 +818,7 @@ export const useProjectStore = create<ProjectState>()(
           image: state.project.image
             ? {
                 ...state.project.image,
-                dataUrl: '', // Store empty string, not the full base64
+                dataUrl: "", // Store empty string, not the full base64
               }
             : null,
         },
@@ -745,8 +850,11 @@ export const useProjectStore = create<ProjectState>()(
           if (state.project?.image && !state.project.image.dataUrl) {
             state.project.image = null;
             // Reset to upload step if we were past upload but lost the image
-            if (state.currentStep !== 'upload' && state.currentStep !== 'results') {
-              state.currentStep = 'upload';
+            if (
+              state.currentStep !== "upload" &&
+              state.currentStep !== "results"
+            ) {
+              state.currentStep = "upload";
             }
           }
         }
@@ -759,6 +867,6 @@ export const useProjectStore = create<ProjectState>()(
         }
         return persistedState as ProjectState;
       },
-    }
-  )
+    },
+  ),
 );

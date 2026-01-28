@@ -12,9 +12,9 @@
  * - Keyboard navigation
  */
 
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import type { SceneBounds } from './sceneTypes';
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import type { SceneBounds } from "./sceneTypes";
 
 // Re-export for convenience
 export type { SceneBounds };
@@ -58,7 +58,7 @@ const DEFAULT_OPTIONS: Required<CameraControllerOptions> = {
   maxPolarAngle: Math.PI / 2 - 0.05,
   minPolarAngle: 0.1,
   zoomToCursor: true,
-  zoomSpeed: 1.2,
+  zoomSpeed: 0.1,
   rotateSpeed: 0.8,
   panSpeed: 1.0,
   enableKeyboard: true,
@@ -82,7 +82,7 @@ export class CameraController {
   constructor(
     camera: THREE.PerspectiveCamera,
     domElement: HTMLElement,
-    options: CameraControllerOptions = {}
+    options: CameraControllerOptions = {},
   ) {
     this.camera = camera;
     this.domElement = domElement;
@@ -138,19 +138,27 @@ export class CameraController {
   private setupEventListeners(): void {
     // Zoom toward cursor
     if (this.options.zoomToCursor) {
-      this.domElement.addEventListener('wheel', this.handleWheel, { passive: false });
+      this.domElement.addEventListener("wheel", this.handleWheel, {
+        passive: false,
+      });
     }
 
     // Keyboard navigation
     if (this.options.enableKeyboard) {
-      this.domElement.setAttribute('tabindex', '0');
-      this.domElement.addEventListener('keydown', this.handleKeyDown);
+      this.domElement.setAttribute("tabindex", "0");
+      this.domElement.addEventListener("keydown", this.handleKeyDown);
     }
 
     // Touch gestures (enhanced)
-    this.domElement.addEventListener('touchstart', this.handleTouchStart, { passive: false });
-    this.domElement.addEventListener('touchmove', this.handleTouchMove, { passive: false });
-    this.domElement.addEventListener('touchend', this.handleTouchEnd, { passive: true });
+    this.domElement.addEventListener("touchstart", this.handleTouchStart, {
+      passive: false,
+    });
+    this.domElement.addEventListener("touchmove", this.handleTouchMove, {
+      passive: false,
+    });
+    this.domElement.addEventListener("touchend", this.handleTouchEnd, {
+      passive: true,
+    });
   }
 
   private handleWheel = (event: WheelEvent): void => {
@@ -168,16 +176,24 @@ export class CameraController {
 
     // Find intersection with ground plane
     const intersectPoint = new THREE.Vector3();
-    const hasIntersection = this.raycaster.ray.intersectPlane(this.groundPlane, intersectPoint);
+    const hasIntersection = this.raycaster.ray.intersectPlane(
+      this.groundPlane,
+      intersectPoint,
+    );
 
     if (hasIntersection) {
       // Calculate zoom factor
       const zoomFactor = event.deltaY > 0 ? 1.1 : 0.9;
-      const currentDistance = this.camera.position.distanceTo(this.controls.target);
+      const currentDistance = this.camera.position.distanceTo(
+        this.controls.target,
+      );
       const newDistance = currentDistance * zoomFactor;
 
       // Check distance constraints
-      if (newDistance < this.options.minDistance || newDistance > this.options.maxDistance) {
+      if (
+        newDistance < this.options.minDistance ||
+        newDistance > this.options.maxDistance
+      ) {
         return;
       }
 
@@ -190,8 +206,13 @@ export class CameraController {
       }
 
       // Apply zoom
-      const direction = this.camera.position.clone().sub(this.controls.target).normalize();
-      this.camera.position.copy(this.controls.target.clone().add(direction.multiplyScalar(newDistance)));
+      const direction = this.camera.position
+        .clone()
+        .sub(this.controls.target)
+        .normalize();
+      this.camera.position.copy(
+        this.controls.target.clone().add(direction.multiplyScalar(newDistance)),
+      );
 
       this.controls.update();
     }
@@ -203,7 +224,7 @@ export class CameraController {
     const rotateAmount = 0.1;
 
     switch (event.key) {
-      case 'ArrowUp':
+      case "ArrowUp":
         event.preventDefault();
         if (event.shiftKey) {
           // Tilt up - rotate camera around horizontal axis
@@ -214,7 +235,7 @@ export class CameraController {
         }
         break;
 
-      case 'ArrowDown':
+      case "ArrowDown":
         event.preventDefault();
         if (event.shiftKey) {
           // Tilt down
@@ -225,7 +246,7 @@ export class CameraController {
         }
         break;
 
-      case 'ArrowLeft':
+      case "ArrowLeft":
         event.preventDefault();
         if (event.shiftKey) {
           // Rotate left - orbit horizontally
@@ -236,7 +257,7 @@ export class CameraController {
         }
         break;
 
-      case 'ArrowRight':
+      case "ArrowRight":
         event.preventDefault();
         if (event.shiftKey) {
           // Rotate right
@@ -247,33 +268,33 @@ export class CameraController {
         }
         break;
 
-      case '+':
-      case '=':
+      case "+":
+      case "=":
         event.preventDefault();
         this.zoom(zoomAmount);
         break;
 
-      case '-':
-      case '_':
+      case "-":
+      case "_":
         event.preventDefault();
         this.zoom(1 / zoomAmount);
         break;
 
-      case 'Home':
+      case "Home":
         event.preventDefault();
         this.resetToHome();
         break;
 
-      case 'f':
-      case 'F':
+      case "f":
+      case "F":
         if (!event.ctrlKey && !event.metaKey) {
           event.preventDefault();
           // Fit to view would be called externally with bounds
         }
         break;
 
-      case 'n':
-      case 'N':
+      case "n":
+      case "N":
         event.preventDefault();
         this.alignToNorth();
         break;
@@ -301,7 +322,7 @@ export class CameraController {
     const spherical = new THREE.Spherical().setFromVector3(offset);
     spherical.phi = Math.max(
       this.options.minPolarAngle,
-      Math.min(this.options.maxPolarAngle, spherical.phi - angle)
+      Math.min(this.options.maxPolarAngle, spherical.phi - angle),
     );
     offset.setFromSpherical(spherical);
     this.camera.position.copy(this.controls.target.clone().add(offset));
@@ -366,7 +387,7 @@ export class CameraController {
   private getTouchAngle(touches: TouchList): number {
     return Math.atan2(
       touches[1].clientY - touches[0].clientY,
-      touches[1].clientX - touches[0].clientX
+      touches[1].clientX - touches[0].clientX,
     );
   }
 
@@ -378,8 +399,12 @@ export class CameraController {
 
     // Get camera's right and forward vectors
     const eye = this.camera.position.clone().sub(this.controls.target);
-    const right = new THREE.Vector3().crossVectors(this.camera.up, eye).normalize();
-    const forward = new THREE.Vector3().crossVectors(right, this.camera.up).normalize();
+    const right = new THREE.Vector3()
+      .crossVectors(this.camera.up, eye)
+      .normalize();
+    const forward = new THREE.Vector3()
+      .crossVectors(right, this.camera.up)
+      .normalize();
 
     offset.add(right.multiplyScalar(deltaX));
     offset.add(forward.multiplyScalar(deltaZ));
@@ -392,14 +417,21 @@ export class CameraController {
    * Zoom by a factor (< 1 = zoom in, > 1 = zoom out)
    */
   zoom(factor: number): void {
-    const currentDistance = this.camera.position.distanceTo(this.controls.target);
+    const currentDistance = this.camera.position.distanceTo(
+      this.controls.target,
+    );
     const newDistance = Math.max(
       this.options.minDistance,
-      Math.min(this.options.maxDistance, currentDistance * factor)
+      Math.min(this.options.maxDistance, currentDistance * factor),
     );
 
-    const direction = this.camera.position.clone().sub(this.controls.target).normalize();
-    this.camera.position.copy(this.controls.target.clone().add(direction.multiplyScalar(newDistance)));
+    const direction = this.camera.position
+      .clone()
+      .sub(this.controls.target)
+      .normalize();
+    this.camera.position.copy(
+      this.controls.target.clone().add(direction.multiplyScalar(newDistance)),
+    );
     this.controls.update();
   }
 
@@ -428,11 +460,14 @@ export class CameraController {
     const newPosition = new THREE.Vector3(
       this.controls.target.x,
       targetHeight + distance * 0.7, // Maintain some height
-      this.controls.target.z + distance * 0.7
+      this.controls.target.z + distance * 0.7,
     );
 
     if (animate) {
-      this.animateTo({ position: newPosition, target: this.controls.target.clone() });
+      this.animateTo({
+        position: newPosition,
+        target: this.controls.target.clone(),
+      });
     } else {
       this.camera.position.copy(newPosition);
       this.controls.update();
@@ -477,7 +512,11 @@ export class CameraController {
   /**
    * Fit camera to show all content within bounds
    */
-  fitToView(bounds: SceneBounds, padding: number = 1.5, animate: boolean = true): void {
+  fitToView(
+    bounds: SceneBounds,
+    padding: number = 1.5,
+    animate: boolean = true,
+  ): void {
     const { center, size, maxHeight } = bounds;
 
     // Calculate optimal camera position
@@ -487,7 +526,7 @@ export class CameraController {
     const newPosition = new THREE.Vector3(
       center.x + cameraDistance * 0.7,
       cameraHeight,
-      center.y + cameraDistance * 0.7
+      center.y + cameraDistance * 0.7,
     );
 
     const newTarget = new THREE.Vector3(center.x, maxHeight / 2, center.y);
@@ -524,8 +563,16 @@ export class CameraController {
         const eased = 1 - Math.pow(1 - progress, 3);
 
         // Interpolate position and target
-        this.camera.position.lerpVectors(startPosition, targetState.position, eased);
-        this.controls.target.lerpVectors(startTarget, targetState.target, eased);
+        this.camera.position.lerpVectors(
+          startPosition,
+          targetState.position,
+          eased,
+        );
+        this.controls.target.lerpVectors(
+          startTarget,
+          targetState.target,
+          eased,
+        );
         this.controls.update();
 
         if (progress < 1) {
@@ -575,51 +622,51 @@ export class CameraController {
    * Phase 3: Set camera to a view preset
    */
   setViewPreset(
-    preset: 'aerial' | 'street' | 'top' | 'oblique',
+    preset: "aerial" | "street" | "top" | "oblique",
     bounds: SceneBounds,
-    animate: boolean = true
+    animate: boolean = true,
   ): void {
     const { center, size, maxHeight } = bounds;
     let newPosition: THREE.Vector3;
     let newTarget: THREE.Vector3;
 
     switch (preset) {
-      case 'aerial':
+      case "aerial":
         // Bird's eye view - high altitude, looking down at 60° angle
         newPosition = new THREE.Vector3(
           center.x + size * 0.3,
           maxHeight + size * 1.5,
-          center.y + size * 0.3
+          center.y + size * 0.3,
         );
         newTarget = new THREE.Vector3(center.x, maxHeight / 3, center.y);
         break;
 
-      case 'street':
+      case "street":
         // Ground level view - eye height, looking at buildings
         newPosition = new THREE.Vector3(
           center.x + size * 0.8,
-          5,  // Eye height ~5m
-          center.y + size * 0.8
+          5, // Eye height ~5m
+          center.y + size * 0.8,
         );
         newTarget = new THREE.Vector3(center.x, maxHeight / 2, center.y);
         break;
 
-      case 'top':
+      case "top":
         // Plan view - directly above, looking straight down
         newPosition = new THREE.Vector3(
           center.x,
           Math.max(size * 2, maxHeight * 4),
-          center.y + 0.01  // Tiny offset to prevent gimbal lock
+          center.y + 0.01, // Tiny offset to prevent gimbal lock
         );
         newTarget = new THREE.Vector3(center.x, 0, center.y);
         break;
 
-      case 'oblique':
+      case "oblique":
         // 45° oblique view - classic architectural rendering angle
         newPosition = new THREE.Vector3(
           center.x + size * 0.8,
           maxHeight + size * 0.5,
-          center.y + size * 0.8
+          center.y + size * 0.8,
         );
         newTarget = new THREE.Vector3(center.x, maxHeight / 3, center.y);
         break;
@@ -640,9 +687,13 @@ export class CameraController {
   focusOn(
     point: THREE.Vector3,
     distance: number = 100,
-    animate: boolean = true
+    animate: boolean = true,
   ): void {
-    const offset = new THREE.Vector3(distance * 0.6, distance * 0.8, distance * 0.6);
+    const offset = new THREE.Vector3(
+      distance * 0.6,
+      distance * 0.8,
+      distance * 0.6,
+    );
     const newPosition = point.clone().add(offset);
 
     if (animate) {
@@ -669,11 +720,11 @@ export class CameraController {
       cancelAnimationFrame(this.animationFrame);
     }
 
-    this.domElement.removeEventListener('wheel', this.handleWheel);
-    this.domElement.removeEventListener('keydown', this.handleKeyDown);
-    this.domElement.removeEventListener('touchstart', this.handleTouchStart);
-    this.domElement.removeEventListener('touchmove', this.handleTouchMove);
-    this.domElement.removeEventListener('touchend', this.handleTouchEnd);
+    this.domElement.removeEventListener("wheel", this.handleWheel);
+    this.domElement.removeEventListener("keydown", this.handleKeyDown);
+    this.domElement.removeEventListener("touchstart", this.handleTouchStart);
+    this.domElement.removeEventListener("touchmove", this.handleTouchMove);
+    this.domElement.removeEventListener("touchend", this.handleTouchEnd);
 
     this.controls.dispose();
   }

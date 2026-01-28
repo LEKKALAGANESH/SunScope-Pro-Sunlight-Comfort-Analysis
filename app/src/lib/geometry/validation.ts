@@ -125,9 +125,9 @@ export function validateSiteConfig(config: SiteConfig): ValidationResult {
   // Error: Invalid scale
   if (!Number.isFinite(config.scale) || config.scale <= 0) {
     errors.push(`Invalid scale: ${config.scale}. Must be a positive number.`);
-  } else if (config.scale < 0.01 || config.scale > 100) {
+  } else if (config.scale < 0.01 || config.scale > 10) {
     warnings.push(
-      `Scale ${config.scale} m/px is outside typical range (0.01 - 100). ` +
+      `Scale ${config.scale} m/px is outside typical range (0.01 - 10). ` +
         `Verify this is correct.`
     );
   }

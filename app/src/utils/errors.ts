@@ -160,7 +160,7 @@ export const ERROR_MESSAGES: Record<ErrorType, { message: string; recovery?: str
     recovery: 'Enter a typical floor height (e.g., 3m).',
   },
   [ErrorType.INVALID_SCALE]: {
-    message: 'Scale must be between 0.01 and 100 meters per pixel.',
+    message: 'Scale must be between 0.01 and 10 meters per pixel.',
     recovery: 'Adjust the scale reference line.',
   },
   [ErrorType.INVALID_NORTH_ANGLE]: {
@@ -226,7 +226,7 @@ export const validators = {
   },
 
   scale: (value: number): boolean => {
-    return typeof value === 'number' && !isNaN(value) && value >= 0.01 && value <= 100;
+    return typeof value === 'number' && !isNaN(value) && value >= 0.01 && value <= 10;
   },
 
   northAngle: (value: number): boolean => {

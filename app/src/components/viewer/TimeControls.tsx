@@ -150,8 +150,9 @@ function EnhancedTimeline({
   }, [updateValueFromEvent]);
 
   // Clamp thumb position so it stays within the track bounds
-  // thumbWidth = 20px (w-5), so we interpolate from 0 to (100% - 20px)
-  const thumbPosition = `calc(${currentPercent}% - ${currentPercent * 0.2}px)`;
+  // thumbWidth = 20px (w-5), thumb should stay within 0 to (100% - 20px)
+  // Use CSS clamp to ensure thumb never goes outside the track
+  const thumbPosition = `clamp(0px, calc(${currentPercent}% - 10px), calc(100% - 20px))`;
 
   return (
     <div>

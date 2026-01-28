@@ -20,31 +20,32 @@ import * as THREE from "three";
 import type { Point2D } from "./types";
 
 /**
- * Light pastel floor color palette for clear floor differentiation
+ * Accessible floor color palette for clear floor differentiation
  *
  * Design principles:
- * - Very light, soft, desaturated tones (pastels/near-white)
- * - Sufficient contrast between adjacent floors
- * - Preserves shadow visibility
+ * - Good contrast against ground/land colors
+ * - Distinguishable for color blindness (uses varied hues + luminance)
+ * - WCAG 2.1 accessible color combinations
  * - Professional, architectural appearance
  * - Alternating warm/cool tones for better visual separation
+ * - Avoids browns/grays that blend with ground
  */
 const FLOOR_COLORS_PASTEL = [
-  0xf5e6e8, // Floor 1 - Soft rose/blush
-  0xe8f0f5, // Floor 2 - Light sky blue
-  0xf5f0e6, // Floor 3 - Warm cream
-  0xe6f5f0, // Floor 4 - Mint mist
-  0xf0e6f5, // Floor 5 - Lavender whisper
-  0xf5f5e6, // Floor 6 - Pale lemon
-  0xe6e8f5, // Floor 7 - Soft periwinkle
-  0xf5ebe6, // Floor 8 - Peach cream
-  0xe6f5f5, // Floor 9 - Aqua mist
-  0xf5e6f0, // Floor 10 - Pink pearl
-  0xebf5e6, // Floor 11 - Soft sage
-  0xf0f5f8, // Floor 12 - Cloud white
-  0xf8f5f0, // Floor 13 - Warm white
-  0xf0f8f5, // Floor 14 - Cool white
-  0xf8f0f5, // Floor 15+ - Blush white
+  0x7cb9e8, // Floor 1 - Sky blue (distinct from ground)
+  0xf4a460, // Floor 2 - Sandy orange
+  0x98d8c8, // Floor 3 - Seafoam green
+  0xdda0dd, // Floor 4 - Plum/lavender
+  0xffd700, // Floor 5 - Gold yellow
+  0x87ceeb, // Floor 6 - Light sky blue
+  0xffb6c1, // Floor 7 - Light pink
+  0x90ee90, // Floor 8 - Light green
+  0xdeb887, // Floor 9 - Burlywood tan
+  0xb0c4de, // Floor 10 - Light steel blue
+  0xffa07a, // Floor 11 - Light salmon
+  0x98fb98, // Floor 12 - Pale green
+  0xe6e6fa, // Floor 13 - Lavender
+  0xffefd5, // Floor 14 - Papaya whip
+  0xafeeee, // Floor 15+ - Pale turquoise
 ];
 
 // Edge colors for floor separation - slightly darker than floor colors
@@ -395,66 +396,86 @@ function createRoofMesh(
 
 /**
  * Create floor number label as a sprite
- * Labels are positioned on the building face for easy floor identification
+ * Semi-transparent pill background for visibility on any background
  */
 function createFloorLabel(
   footprint: Point2D[],
   floorNumber: number,
   floorMidY: number,
   isSelected: boolean = false,
+  floorHeight: number = 3, // Used to scale label proportionally
 ): THREE.Sprite {
   // Find the centroid of the footprint
-  let sumX = 0,
-    sumZ = 0;
+  let sumZ = 0;
   for (const p of footprint) {
-    sumX += p.x;
     sumZ += p.y;
   }
-  const centroidX = sumX / footprint.length;
   const centroidZ = sumZ / footprint.length;
 
-  // Find the edge closest to positive X (typically facing "front")
-  // and position label just outside that edge
+  // Find the max X extent and calculate building radius
   let maxX = -Infinity;
+  let minX = Infinity;
+  let maxZ = -Infinity;
+  let minZ = Infinity;
   for (const p of footprint) {
     if (p.x > maxX) maxX = p.x;
+    if (p.x < minX) minX = p.x;
+    if (p.y > maxZ) maxZ = p.y;
+    if (p.y < minZ) minZ = p.y;
   }
 
-  // Create canvas for the label
+  // Create canvas for the label with semi-transparent pill background
   const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 256;
+  canvas.width = 128;
+  canvas.height = 64;
   const ctx = canvas.getContext("2d")!;
 
-  // Draw background circle
-  ctx.beginPath();
-  ctx.arc(32, 32, 28, 0, Math.PI * 2);
-  ctx.fillStyle = isSelected
-    ? "rgba(245, 158, 11, 0.95)"
-    : "rgba(255, 255, 255, 0.9)";
-  ctx.fill();
-  ctx.strokeStyle = isSelected ? "#D97706" : "#6B7280";
-  ctx.lineWidth = 3;
-  ctx.stroke();
-
-  // Draw floor number
-  ctx.fillStyle = isSelected ? "#FFFFFF" : "#374151";
-  ctx.font = "bold 48px Arial";
+  const text = String(floorNumber);
+  ctx.font = "normal 36px Arial";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(String(floorNumber), 32, 32);
+
+  // Measure text to size the pill
+  const metrics = ctx.measureText(text);
+  const textWidth = metrics.width;
+  const pillPadding = 16;
+  const pillWidth = Math.max(textWidth + pillPadding * 2, 45);
+  const pillHeight = 40;
+  const pillX = (128 - pillWidth) / 2;
+  const pillY = (64 - pillHeight) / 2;
+  const pillRadius = pillHeight / 2;
+
+  // Draw semi-transparent pill background
+  ctx.fillStyle = isSelected
+    ? "rgba(251, 191, 36, 0.85)"
+    : "rgba(60, 60, 60, 0.45)";
+  ctx.beginPath();
+  ctx.roundRect(pillX, pillY, pillWidth, pillHeight, pillRadius);
+  ctx.fill();
+
+  // Draw text (no stroke needed with pill background)
+  ctx.fillStyle = isSelected ? "#000000" : "#ffffff";
+  ctx.fillText(text, 64, 32);
 
   const texture = new THREE.CanvasTexture(canvas);
   const material = new THREE.SpriteMaterial({
     map: texture,
     transparent: true,
-    depthTest: true,
   });
 
   const sprite = new THREE.Sprite(material);
-  // Position slightly outside the building on the positive X side
-  sprite.position.set(maxX + 1.5, floorMidY, centroidZ);
-  sprite.scale.set(15, 15, 1);
+
+  // Scale label proportionally to floor height
+  // Base scale for standard 3m floor, scales up for larger floor heights
+  const scaleFactor = Math.max(1, floorHeight / 3);
+  const labelWidth = 12 * scaleFactor;
+  const labelHeight = 6 * scaleFactor;
+
+  // Position label just outside the building edge, with gap proportional to scale
+  const labelOffset = maxX + 3 * scaleFactor;
+
+  sprite.position.set(labelOffset, floorMidY, centroidZ);
+  sprite.scale.set(labelWidth, labelHeight, 1);
   sprite.name = `FloorLabel_${floorNumber}`;
 
   return sprite;
@@ -610,6 +631,7 @@ export function createRobustBuildingMesh(
         floor,
         floorMidY,
         isSelectedFloor,
+        floorHeight, // Pass floor height for proportional scaling
       );
       group.add(label);
     }

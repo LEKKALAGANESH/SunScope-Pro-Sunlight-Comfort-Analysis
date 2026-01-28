@@ -271,7 +271,7 @@ export function SiteSetup() {
           setSiteConfig({ scale: newScale });
         } else {
           showToast(
-            "The calculated scale is outside valid range (0.01-100 m/px). Try a different reference distance.",
+            "The calculated scale is outside valid range (0.01-10 m/px). Try a different reference distance.",
             ErrorSeverity.WARNING,
           );
         }
@@ -466,7 +466,7 @@ export function SiteSetup() {
     if (!validators.scale(value)) {
       setValidationErrors((prev) => ({
         ...prev,
-        scale: "Scale must be between 0.01 and 100 m/px",
+        scale: "Scale must be between 0.01 and 10 m/px",
       }));
       return false;
     }

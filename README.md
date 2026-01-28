@@ -22,25 +22,25 @@ SunScope Pro is a free, browser-based web application that enables users to anal
 
 ## Screenshots
 
-| Upload Site Plan | 3D Viewer | Analysis Results |
-|------------------|-----------|------------------|
+| Upload Site Plan                 | 3D Viewer                     | Analysis Results               |
+| -------------------------------- | ----------------------------- | ------------------------------ |
 | Upload and auto-detect buildings | Interactive shadow simulation | Comprehensive sunlight metrics |
 
 ---
 
 ## Tech Stack
 
-| Category | Technology |
-|----------|------------|
-| Framework | React 19 + TypeScript |
-| 3D Engine | Three.js |
-| Sun Calculations | SunCalc |
-| State Management | Zustand |
-| Styling | Tailwind CSS |
-| Build Tool | Vite |
-| Testing | Vitest + Testing Library |
-| PDF Export | jsPDF |
-| GIF Export | gif.js |
+| Category         | Technology               |
+| ---------------- | ------------------------ |
+| Framework        | React 19 + TypeScript    |
+| 3D Engine        | Three.js                 |
+| Sun Calculations | SunCalc                  |
+| State Management | Zustand                  |
+| Styling          | Tailwind CSS             |
+| Build Tool       | Vite                     |
+| Testing          | Vitest + Testing Library |
+| PDF Export       | jsPDF                    |
+| GIF Export       | gif.js                   |
 
 ---
 
@@ -85,26 +85,34 @@ The production build will be in the `app/dist` directory.
 SunScope Pro follows a 6-step wizard flow:
 
 ### 1. Upload
+
 Upload your site plan image (PNG, JPG, or PDF). The tool accepts floor plans, site layouts, or aerial views.
 
 ### 2. Setup
+
 Configure site parameters:
+
 - Set geographic location (latitude/longitude)
 - Define north orientation
 - Calibrate scale (meters per pixel)
 
 ### 3. Validate
+
 Review auto-detected buildings, amenities, compass orientation, and scale markers. Confirm or adjust detections.
 
 ### 4. Editor
+
 Define building footprints using the canvas-based massing editor:
+
 - Draw polygon footprints
 - Set floor counts and heights
 - Name and color-code buildings
 - Import/export building data
 
 ### 5. 3D Viewer
+
 Explore the interactive 3D visualization:
+
 - Real-time shadow rendering
 - Time-of-day scrubber with playback
 - Date selection for seasonal analysis
@@ -113,7 +121,9 @@ Explore the interactive 3D visualization:
 - Camera orbit and zoom
 
 ### 6. Results
+
 View comprehensive analysis results:
+
 - Sunlight hours and timing
 - Solar irradiance data
 - Thermal comfort indicators
@@ -167,41 +177,47 @@ SunScope-Pro-Sunlight-Comfort-Analysis/
 
 All commands should be run from the `app/` directory:
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start development server with HMR |
-| `npm run build` | Type-check and build for production |
-| `npm run lint` | Run ESLint |
-| `npm run test` | Run tests in watch mode |
-| `npm run test:run` | Single test run |
-| `npm run test:coverage` | Generate test coverage report |
-| `npm run preview` | Preview production build |
+| Command                 | Description                         |
+| ----------------------- | ----------------------------------- |
+| `npm run dev`           | Start development server with HMR   |
+| `npm run build`         | Type-check and build for production |
+| `npm run lint`          | Run ESLint                          |
+| `npm run test`          | Run tests in watch mode             |
+| `npm run test:run`      | Single test run                     |
+| `npm run test:coverage` | Generate test coverage report       |
+| `npm run preview`       | Preview production build            |
 
 ---
 
 ## Core Modules
 
 ### Analysis Engine
+
 Located in `src/modules/analysis/AnalysisEngine.ts`
 
 Calculates sunlight exposure metrics using SunCalc library:
+
 - Sun position (altitude, azimuth) for any date/time/location
 - Direct sunlight hours
 - Solar irradiance calculations
 - Comfort score estimation
 
 ### Shadow Calculator
+
 Located in `src/modules/analysis/ShadowCalculator.ts`
 
 Computes shadow geometry from building heights:
+
 - Shadow projection based on sun angle
 - Shadow overlap detection
 - Shadow coverage percentage
 
 ### Export Service
+
 Located in `src/modules/export/`
 
 Supports multiple export formats:
+
 - **PDF** - Full analysis report with 3D snapshot
 - **CSV** - Hourly data for spreadsheet analysis
 - **JSON** - Structured data export
@@ -266,16 +282,19 @@ interface Scenario {
 ## Limitations & Disclaimers
 
 This tool provides **conceptual insights** based on:
+
 - Simplified 3D massing (extruded footprints)
 - Clear-sky solar assumptions
 - Standard floor heights
 
 **Results are intended for:**
+
 - Early-stage decision-making
 - Comparative analysis
 - Educational exploration
 
 **Not suitable for:**
+
 - Detailed engineering calculations
 - HVAC sizing
 - Building code compliance verification
@@ -321,4 +340,4 @@ For questions, suggestions, or feedback, please open an issue on GitHub.
 
 ---
 
-*Built with React, Three.js, and SunCalc*
+_Built with React, Three.js, and SunCalc_

@@ -71,47 +71,49 @@ const LIGHTING_PRESETS: Record<TimePhase, EnvironmentLighting> = {
   },
 
   dawn: {
-    skyColor: new THREE.Color(0x4a6080),        // Pre-dawn blue-gray
-    horizonColor: new THREE.Color(0xffa07a),    // Warm salmon horizon
-    groundColor: new THREE.Color(0x3a4a5a),     // Cool gray ground
+    // Early morning (before ~8 AM) - soft, warm light with light blue sky
+    skyColor: new THREE.Color(0x8fb8dc),        // Light blue with slight warmth
+    horizonColor: new THREE.Color(0xffd4a8),    // Soft golden horizon
+    groundColor: new THREE.Color(0xc8d4c8),     // Soft green-gray ground
 
-    sunColor: new THREE.Color(0xffd4a0),        // Warm golden
-    sunIntensity: 0.5,
+    sunColor: new THREE.Color(0xffe8c0),        // Warm golden morning light
+    sunIntensity: 0.65,
 
-    ambientColor: new THREE.Color(0x6080a0),    // Cool blue-gray
-    ambientIntensity: 0.2,
+    ambientColor: new THREE.Color(0xa8c8e0),    // Soft blue ambient
+    ambientIntensity: 0.22,
 
-    hemiSkyColor: new THREE.Color(0x8090b0),
-    hemiGroundColor: new THREE.Color(0x605040),
-    hemiIntensity: 0.3,
+    hemiSkyColor: new THREE.Color(0xa0c0d8),    // Light sky blue
+    hemiGroundColor: new THREE.Color(0xc8b8a0), // Warm ground reflection
+    hemiIntensity: 0.32,
 
-    shadowDarkness: 0.4,
-    shadowSoftness: 0.6,
+    shadowDarkness: 0.45,
+    shadowSoftness: 0.5,
 
-    fogColor: new THREE.Color(0x7090b0),
-    fogDensity: 0.00015,
+    fogColor: new THREE.Color(0xb8d0e0),        // Light blue-gray fog
+    fogDensity: 0.0001,
   },
 
   morning: {
-    skyColor: new THREE.Color(0x87ceeb),        // Clear morning sky
-    horizonColor: new THREE.Color(0xffe4b5),    // Soft warm horizon
-    groundColor: new THREE.Color(0xd0e0d0),     // Fresh green-tinted
+    // Mid-morning (~8-10 AM) - bright, clear sky
+    skyColor: new THREE.Color(0x7ec8f0),        // Bright clear morning sky
+    horizonColor: new THREE.Color(0xfff0d8),    // Soft warm horizon
+    groundColor: new THREE.Color(0xd8e8d8),     // Fresh green-tinted
 
-    sunColor: new THREE.Color(0xfff5e0),        // Bright warm white
-    sunIntensity: 0.9,
+    sunColor: new THREE.Color(0xfff8e8),        // Bright warm white
+    sunIntensity: 1.0,
 
-    ambientColor: new THREE.Color(0xc0d8e8),    // Cool light blue
-    ambientIntensity: 0.25,
+    ambientColor: new THREE.Color(0xc8e0f0),    // Cool light blue
+    ambientIntensity: 0.28,
 
-    hemiSkyColor: new THREE.Color(0xb4d4e8),
-    hemiGroundColor: new THREE.Color(0xd0c8b0),
-    hemiIntensity: 0.35,
+    hemiSkyColor: new THREE.Color(0xb8dcf0),    // Clear sky blue
+    hemiGroundColor: new THREE.Color(0xd8d0c0), // Warm ground
+    hemiIntensity: 0.38,
 
-    shadowDarkness: 0.55,
-    shadowSoftness: 0.4,
+    shadowDarkness: 0.58,
+    shadowSoftness: 0.35,
 
-    fogColor: new THREE.Color(0xd0e8f0),
-    fogDensity: 0.0001,
+    fogColor: new THREE.Color(0xd8f0f8),        // Very light blue
+    fogDensity: 0.00008,
   },
 
   midday: {

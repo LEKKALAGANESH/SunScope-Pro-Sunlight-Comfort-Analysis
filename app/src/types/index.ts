@@ -184,7 +184,7 @@ export interface DisplaySettings {
   showShadowHeatmap: boolean;
   heatmapOpacity: number; // 0-1
   shadowIntensity: number; // 0.3-1.0, controls how dark shadows appear
-  buildingHeightScale: number; // 1.0-3.0, multiplier to make buildings appear taller
+  buildingHeightScale: number; // 1.0-5.0, multiplier to make buildings appear taller
   // Enhanced shadow visualization
   shadowVisualizationMode: 'natural' | 'enhanced' | 'analysis'; // Shadow display mode
   // 'natural' - realistic shadows with dynamic softness

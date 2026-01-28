@@ -265,28 +265,41 @@ export function createBuildingMesh(
           floor * building.floorHeight - building.floorHeight / 2;
 
         const canvas = document.createElement("canvas");
-        canvas.width = 64;
-        canvas.height = 32;
+        canvas.width = 128;
+        canvas.height = 64;
         const ctx = canvas.getContext("2d")!;
 
-        ctx.fillStyle = isSelectedFloor
-          ? "rgba(251, 191, 36, 0.9)"
-          : "rgba(0, 0, 0, 0.6)";
-        ctx.beginPath();
-        ctx.roundRect(4, 4, 56, 24, 4);
-        ctx.fill();
-
-        ctx.fillStyle = isSelectedFloor ? "#000000" : "#ffffff";
-        ctx.font = "bold 18px Arial";
+        // Clean design: just number with outline stroke for visibility
+        const text = `${floor}`;
+        ctx.font = "bold 48px Arial";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(`${floor}`, 32, 16);
+
+        // Draw text outline (stroke) for visibility on any background
+        ctx.strokeStyle = isSelectedFloor ? "#000000" : "#333333";
+        ctx.lineWidth = 4;
+        ctx.lineJoin = "round";
+        ctx.strokeText(text, 64, 32);
+
+        // Draw text fill
+        ctx.fillStyle = isSelectedFloor ? "#fbbf24" : "#ffffff";
+        ctx.fillText(text, 64, 32);
 
         const texture = new THREE.CanvasTexture(canvas);
-        const labelMat = new THREE.SpriteMaterial({ map: texture });
+        const labelMat = new THREE.SpriteMaterial({
+          map: texture,
+          transparent: true,
+        });
         const label = new THREE.Sprite(labelMat);
-        label.position.set(maxX + 8, floorHeight, 0);
-        label.scale.set(6, 3, 1);
+        // Position label well outside the building's bounding box
+        const buildingRadius = Math.sqrt(
+          Math.pow(Math.max(Math.abs(maxX), Math.abs(minX)), 2) +
+            Math.pow(Math.max(Math.abs(maxZ), Math.abs(minZ)), 2),
+        );
+        const spriteHalfWidth = 6;
+        const labelOffset = buildingRadius + 20 + spriteHalfWidth;
+        label.position.set(labelOffset, floorHeight, 0);
+        label.scale.set(24, 12, 1);
         highGroup.add(label);
       }
     }
@@ -334,11 +347,11 @@ function createBuildingLabel(
 ): THREE.Group {
   const group = new THREE.Group();
 
-  // Create canvas for the label
+  // Create canvas for the label (doubled sizes)
   const canvas = document.createElement("canvas");
-  const padding = 12;
-  const fontSize = 18;
-  const maxWidth = 180;
+  const padding = 24;
+  const fontSize = 36;
+  const maxWidth = 360;
 
   // Measure text to size canvas appropriately
   const tempCtx = canvas.getContext("2d")!;
@@ -355,12 +368,12 @@ function createBuildingLabel(
   const hexColor = "#" + buildingColor.getHexString();
   ctx.fillStyle = hexColor;
   ctx.beginPath();
-  ctx.roundRect(0, 0, canvas.width, canvas.height, 6);
+  ctx.roundRect(0, 0, canvas.width, canvas.height, 12);
   ctx.fill();
 
   // Border
   ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 4;
   ctx.stroke();
 
   // Text (white for visibility)
@@ -369,9 +382,9 @@ function createBuildingLabel(
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-  ctx.shadowBlur = 2;
-  ctx.shadowOffsetX = 1;
-  ctx.shadowOffsetY = 1;
+  ctx.shadowBlur = 4;
+  ctx.shadowOffsetX = 2;
+  ctx.shadowOffsetY = 2;
   ctx.fillText(
     name.length > 15 ? name.substring(0, 15) + "..." : name,
     canvas.width / 2,
@@ -384,16 +397,16 @@ function createBuildingLabel(
   const material = new THREE.SpriteMaterial({
     map: texture,
     transparent: true,
-    depthTest: false, // Always visible
+    depthTest: true, // Always visible
   });
   const sprite = new THREE.Sprite(material);
 
   // Position above the building
-  sprite.position.set(0, buildingHeight + 8, 0);
+  sprite.position.set(0, buildingHeight + 12, 0);
 
-  // Scale based on canvas aspect ratio
-  const spriteWidth = canvas.width / 8;
-  const spriteHeight = canvas.height / 8;
+  // Scale based on canvas aspect ratio (doubled: /4 instead of /8)
+  const spriteWidth = canvas.width / 4;
+  const spriteHeight = canvas.height / 4;
   sprite.scale.set(spriteWidth, spriteHeight, 1);
 
   group.add(sprite);
@@ -401,7 +414,7 @@ function createBuildingLabel(
   // Add a thin line from building to label
   const lineGeo = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(0, buildingHeight, 0),
-    new THREE.Vector3(0, buildingHeight + 5, 0),
+    new THREE.Vector3(0, buildingHeight + 8, 0),
   ]);
   const lineMat = new THREE.LineBasicMaterial({
     color: buildingColor,
